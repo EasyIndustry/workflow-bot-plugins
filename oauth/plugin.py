@@ -107,6 +107,11 @@ CUENTAS = Resource(
             "refresh_token", ParamType.STR, label="Refresh token", secret=True,
             doc="Lo completa 'Autorizar'. No hace falta tocarlo.",
         ),
+        Field(
+            "codigo", ParamType.STR, label="Código de autorización (paso 2)",
+            doc="Después del paso 1 de 'Autorizar': pegar acá la dirección ENTERA a la que volvió el "
+            "navegador (http://127.0.0.1:…/?code=…), guardar y apretar 'Autorizar' otra vez. Se vacía solo.",
+        ),
         Field("auth_url", ParamType.STR, label="URL de autorización", doc="Sólo con proveedor 'otro'."),
         Field("token_url", ParamType.STR, label="URL de tokens", doc="Sólo con proveedor 'otro'."),
     ),
@@ -115,13 +120,15 @@ CUENTAS = Resource(
 AUTORIZAR = Action(
     "autorizar", "Autorizar",
     doc=(
-        "Paso 1, con 'codigo' vacío: abre la pantalla del proveedor para aceptar. Al aceptar, el "
-        "navegador vuelve a este Bot con ?code=… en la dirección. Paso 2: copiar esa dirección "
-        "entera, pegarla en 'codigo' y volver a apretar."
+        "Paso 1, con 'Código' vacío: abre la pantalla del proveedor para aceptar. Al aceptar, el "
+        "navegador vuelve a este Bot con ?code=… en la dirección. Paso 2: editar la cuenta, pegar esa "
+        "dirección entera en 'Código de autorización', guardar y volver a apretar Autorizar."
     ),
     resource="cuentas",
     params=(
         Param("nombre", required=True, options_from="cuentas"),
+        # Llega desde el campo `codigo` de la cuenta: el botón de una fila corre
+        # la Action con lo guardado y no pide params aparte.
         Param("codigo", doc="Vacío para empezar. Después, la dirección entera a la que volvió el navegador (o sólo el code)."),
     ),
 )
@@ -145,7 +152,7 @@ CREAR_GMAIL = Action(
 MANIFEST = PluginManifest(
     name="oauth",
     label="OAuth",
-    version="0.1.0",
+    version="0.1.1",
     doc=(
         "Tokens OAuth 2.0 para APIs como Google o Microsoft: autoriza una vez, renueva solo y deja el "
         "token en una variable de Config que las conexiones usan con Bearer {env.VARIABLE}."
@@ -349,6 +356,24 @@ def _codigo_de(pegado: str) -> str | ToolResult:
     return pegado
 
 
+def _guardar_cuenta(ctx: ToolContext, cuenta: dict, **cambios) -> str | None:
+    """
+    Reescribe la cuenta con `cambios`. Los secretos que no cambian no se mandan:
+    el PUT conserva los que llegan en None, así el client_secret no viaja de
+    vuelta sin necesidad. Devuelve el error, o None.
+    """
+    secretos = {f.name for f in CUENTAS.fields if f.secret}
+    item = {k: v for k, v in cuenta.items() if not k.startswith("_") and k not in secretos}
+    item.update(cambios)
+    try:
+        respuesta, _ = _al_bot(ctx, "PUT", f"/resources/oauth/cuentas/{quote(cuenta['nombre'], safe='')}", {"item": item})
+    except PortError as exc:
+        return f"no se pudo guardar la cuenta en {_este_bot(ctx)}: {exc}"
+    if not respuesta.ok:
+        return f"este Bot respondió {respuesta.status} al guardar la cuenta"
+    return None
+
+
 def _autorizar(ctx: ToolContext) -> ToolResult:
     cuenta = _cuenta(ctx, ctx.params["nombre"])
     if isinstance(cuenta, ToolResult):
@@ -366,34 +391,32 @@ def _autorizar(ctx: ToolContext) -> ToolResult:
         }
         return ToolResult.ok(
             "Se abrió la pantalla para aceptar. Al terminar, el navegador vuelve a este Bot con ?code=… "
-            "en la dirección: copiarla entera, pegarla en 'codigo' y apretar Autorizar otra vez.",
+            "en la dirección: copiarla entera, editar la cuenta, pegarla en 'Código de autorización', "
+            "guardar y apretar Autorizar otra vez.",
             abrir_url=f"{auth_url}?{urlencode(consulta)}",
         )
 
+    # Un código se usa una sola vez y vence en minutos: pase lo que pase se
+    # vacía el campo, así el próximo 'Autorizar' vuelve a empezar desde el paso
+    # 1 en vez de reintentar para siempre un código muerto.
     codigo = _codigo_de(pegado)
     if isinstance(codigo, ToolResult):
-        return _con_indicador(codigo)
+        _guardar_cuenta(ctx, cuenta, codigo="")
+        return _con_indicador(ToolResult.err(codigo.message + ". Apretar Autorizar para empezar de nuevo."))
     leido = _pedir_token(ctx, cuenta, {"grant_type": "authorization_code", "code": codigo, "redirect_uri": _redirect(ctx)})
     if isinstance(leido, str):
-        return _con_indicador(ToolResult.err(f"no se pudo canjear el código: {leido}"))
+        _guardar_cuenta(ctx, cuenta, codigo="")
+        return _con_indicador(ToolResult.err(
+            f"no se pudo canjear el código: {leido}. Apretar Autorizar para empezar de nuevo."
+        ))
     refresh = leido.get("refresh_token")
     if not refresh:
+        _guardar_cuenta(ctx, cuenta, codigo="")
         return _con_indicador(ToolResult.err(
             "el proveedor no devolvió refresh token: revocar el acceso de la app en la cuenta y autorizar de nuevo"
         ))
-
-    # Se reescribe la cuenta con el refresh token nuevo. Los demás secretos no
-    # se mandan: el PUT conserva los que llegan en None, y así el client_secret
-    # no viaja de vuelta sin necesidad.
-    secretos = {f.name for f in CUENTAS.fields if f.secret}
-    item = {k: v for k, v in cuenta.items() if not k.startswith("_") and k not in secretos}
-    item["refresh_token"] = refresh
-    try:
-        respuesta, _ = _al_bot(ctx, "PUT", f"/resources/oauth/cuentas/{quote(cuenta['nombre'], safe='')}", {"item": item})
-    except PortError as exc:
-        return _con_indicador(ToolResult.err(f"no se pudo guardar el refresh token en {_este_bot(ctx)}: {exc}"))
-    if not respuesta.ok:
-        return _con_indicador(ToolResult.err(f"este Bot respondió {respuesta.status} al guardar la cuenta"))
+    if error := _guardar_cuenta(ctx, cuenta, refresh_token=refresh, codigo=""):
+        return _con_indicador(ToolResult.err(error))
 
     variable = _variable(cuenta)
     if isinstance(variable, ToolResult):

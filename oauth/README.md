@@ -46,10 +46,13 @@ Plug ins → OAuth → Cuentas OAuth → nueva:
 
 ## 3. Autorizar (dos pasos, una vez)
 
-1. **Autorizar** con `codigo` vacío: se abre la pantalla de Google. Elegir la
-   cuenta y aceptar.
+1. **Autorizar** (en la fila de la cuenta): se abre la pantalla de Google.
+   Elegir la cuenta y aceptar. Si avisa que Google no verificó la app:
+   *Configuración avanzada → Ir a…* (es la propia).
 2. El navegador vuelve a este Bot con `?code=…` en la dirección. Copiar esa
-   dirección **entera**, pegarla en `codigo` y apretar **Autorizar** otra vez.
+   dirección **entera**, editar la cuenta, pegarla en **Código de
+   autorización**, guardar y apretar **Autorizar** otra vez. El campo se vacía
+   solo; si el código ya venció, también se vacía y se empieza de nuevo.
 
 Queda guardado el refresh token (secreto) y el primer token en la variable.
 **Probar** pide uno nuevo y confirma que todo anda.

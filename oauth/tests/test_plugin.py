@@ -60,8 +60,10 @@ def _ctx(params, cuentas, clock):
     def factory(declaracion, ports=None):
         if hasattr(declaracion, "split_params"):
             d, e = declaracion.split_params(params, {})
-        else:  # una Action
-            d, e = {p.name: params.get(p.name, p.default) for p in declaracion.params}, {}
+        else:  # una Action de fila: el núcleo la llena con los campos del item guardado
+            item = next((c for c in cuentas if c.get("nombre") == params.get("nombre")), {})
+            base = {**item, **params}
+            d, e = {p.name: base.get(p.name, p.default) for p in declaracion.params}, {}
         return ToolContext(
             run_id="", case_id="", params=d, extras=e, config={}, context={},
             log=lambda m, level="info": None, ports=ports or {},
@@ -184,16 +186,28 @@ def test_autorizar_paso_2_canjea_guarda_el_refresh_sin_mandar_el_secret_y_deja_e
     [put] = _llamadas(http, f"{BOT}/resources/oauth/cuentas/google")
     item = json.loads(put["body"])["item"]
     assert item["refresh_token"] == "1//nuevo" and "client_secret" not in item and item["client_id"] == CUENTA["client_id"]
+    assert item["codigo"] == ""  # el código ya se usó: se vacía
     assert json.loads(_llamadas(http, f"{BOT}/env/GOOGLE_TOKEN")[0]["body"])["value"] == "ya29.primero"
 
 
-def test_autorizar_con_error_del_proveedor_o_sin_refresh():
-    r = _accion("autorizar", {"nombre": "google", "codigo": "http://127.0.0.1:8123/?error=access_denied"}, FakeHttp())
+def test_autorizar_con_error_del_proveedor_o_sin_refresh_vacia_el_codigo():
+    cuenta_url = f"{BOT}/resources/oauth/cuentas/google"
+    http = _http(**{cuenta_url: _json({"item": {}})})
+    r = _accion("autorizar", {"nombre": "google", "codigo": "http://127.0.0.1:8123/?error=access_denied"}, http)
     assert r.status == "err" and "access_denied" in r.message and r.outputs["indicador"]["estado"] == "err"
+    assert json.loads(_llamadas(http, cuenta_url)[-1]["body"])["item"]["codigo"] == ""
 
-    sin_refresh = _http(**{TOKEN_URL: _json({"access_token": "ya29.x", "expires_in": 3599})})
+    sin_refresh = _http(**{TOKEN_URL: _json({"access_token": "ya29.x", "expires_in": 3599}), cuenta_url: _json({"item": {}})})
     r = _accion("autorizar", {"nombre": "google", "codigo": "4/0Abc"}, sin_refresh)
     assert r.status == "err" and "revocar" in r.message
+
+    # Un código vencido o ya usado: se vacía para que el próximo intento empiece de cero.
+    muerto = _http(**{TOKEN_URL: _json({"error": "invalid_grant", "error_description": "Malformed auth code."}, 400),
+                      cuenta_url: _json({"item": {}})})
+    r = _accion("autorizar", {"nombre": "google", "codigo": "4/0Viejo"}, muerto)
+    assert r.status == "err" and "empezar de nuevo" in r.message
+    assert json.loads(_llamadas(muerto, cuenta_url)[-1]["body"])["item"]["codigo"] == ""
+    assert _llamadas(muerto, f"{BOT}/env/GOOGLE_TOKEN") == []
 
 
 def test_probar_fuerza_un_token_nuevo():
@@ -240,3 +254,15 @@ def test_crear_gmail_escribe_las_conexiones_con_la_variable_y_saltea_las_que_exi
 def test_crear_gmail_solo_para_una_cuenta_de_google():
     r = _accion("crear_gmail", {"nombre": "google"}, FakeHttp(), cuentas=({**CUENTA, "proveedor": "microsoft"},))
     assert r.status == "err" and "Google" in r.message
+
+
+def test_el_codigo_llega_desde_el_campo_de_la_cuenta_guardada():
+    """El botón de la fila no pide params: 'codigo' sale del item, como lo carga el núcleo."""
+    cuenta = {**CUENTA, "refresh_token": "", "codigo": "http://127.0.0.1:8123/?code=4%2F0DesdeElCampo"}
+    http = _http(**{
+        TOKEN_URL: _json({"access_token": "ya29.a", "refresh_token": "1//b", "expires_in": 3599}),
+        f"{BOT}/resources/oauth/cuentas/google": _json({"item": {}}),
+    })
+    r = _accion("autorizar", {"nombre": "google"}, http, cuentas=(cuenta,))
+    assert r.status == "ok", r.message
+    assert parse_qs(_llamadas(http, TOKEN_URL)[0]["body"])["code"] == ["4/0DesdeElCampo"]
