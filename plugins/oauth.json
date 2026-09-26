@@ -1,0 +1,14 @@
+{
+  "name": "oauth",
+  "description": "Tokens OAuth 2.0 (Google, Microsoft u otro): autoriza una vez, renueva solo y deja el token en una variable de Config para las conexiones (Bearer {env.X}).",
+  "source": "workflow-bot-plugin-oauth",
+  "path": "oauth",
+  "ports": [
+    "http",
+    "clock"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.1b11",
+  "license": "MIT"
+}
