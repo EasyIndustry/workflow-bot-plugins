@@ -1,0 +1,13 @@
+{
+  "name": "laya",
+  "description": "Decisiones tipadas sobre un texto o una fila (sí/no, elegir una opción, ubicar en una escala) con Laya, un modelo de decisión local que corre aparte como laya-serve, contra el port http.",
+  "source": "workflow-bot-plugin-laya",
+  "path": "laya",
+  "ports": [
+    "http"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.1b13",
+  "license": "MIT"
+}
