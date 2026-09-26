@@ -216,3 +216,37 @@ def test_guardar_base64_desde_la_response_de_adjuntos_de_gmail():
 
     r, _, _ = _correr("mime.guardar_base64", {"datos": "no es base64 !!!", "ruta": "C:/x.bin"})
     assert r.status == "err"
+
+
+def test_en_un_dry_run_lee_el_mail_y_lista_los_adjuntos_sin_guardarlos():
+    from backend.core.ports import PortError
+
+    class FsEnSeco(FsBytes):
+        def make_dirs(self, path):
+            raise PortError("escritura en dry run: fs.make_dirs")
+
+        def write_bytes(self, path, content):
+            raise PortError("escritura en dry run: fs.write_bytes")
+
+    r, fs, registro = _correr("mime.leer", {"mensaje": _raw(_mail()), "carpeta_adjuntos": "C:/x"}, FsEnSeco())
+    assert r.status == "ok" and r.outputs["asunto"].startswith("La máquina")
+    assert r.outputs["cantidad_adjuntos"] == 4 and all(a["ruta"] == "" for a in r.outputs["adjuntos"])
+    assert any(nivel == "warning" and "en seco" in m for nivel, m in registro)
+
+    # Cualquier otro error al escribir sigue siendo err.
+    class FsRoto(FsBytes):
+        def make_dirs(self, path):
+            raise PortError("ruta fuera del árbol permitido")
+
+    r, _, _ = _correr("mime.leer", {"mensaje": _raw(_mail()), "carpeta_adjuntos": "C:/x"}, FsRoto())
+    assert r.status == "err" and "fuera del árbol" in r.message
+
+
+def test_leer_se_declara_para_correr_en_seco_si_el_nucleo_lo_sabe():
+    import dataclasses
+    from backend.core.contract import ToolManifest
+    from mime.plugin import LEER, ARMAR, GUARDAR_BASE64
+    if "dry_run" not in {f.name for f in dataclasses.fields(ToolManifest)}:
+        return  # núcleo anterior a core#34: se instala igual, sin el campo
+    assert LEER.dry_run == "run"
+    assert ARMAR.dry_run == "skip" and GUARDAR_BASE64.dry_run == "skip"

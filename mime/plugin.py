@@ -24,6 +24,7 @@ Lo que NO hace, a propósito:
 from __future__ import annotations
 
 import base64
+import dataclasses
 import binascii
 import html as html_lib
 import json
@@ -52,11 +53,23 @@ from backend.core.ports import PortError
 MANIFEST = PluginManifest(
     name="mime",
     label="Correo (MIME)",
-    version="0.1.0",
+    version="0.1.1",
     doc="Leer un mail crudo (asunto, remitente, cuerpo en texto, adjuntos a una carpeta) y armar uno para "
     "enviar o responder en el mismo hilo. Pedirlo y mandarlo lo hace una conexión.",
     ports=(port_names.FS,),
 )
+
+
+
+def _en_seco() -> dict:
+    """
+    `dry_run="run"` si el núcleo lo conoce (v0.3.1-beta.14, core#34): en un dry
+    run el tool corre de verdad, con fs y http en modo lectura. Un núcleo
+    anterior no tiene el campo y `ToolManifest(dry_run=...)` reventaría al
+    importar: ahí no se pasa.
+    """
+    campos = {f.name for f in dataclasses.fields(ToolManifest)}
+    return {"dry_run": "run"} if "dry_run" in campos else {}
 
 
 # ── Del texto que llega al mensaje ────────────────────────────────────────
@@ -172,6 +185,11 @@ def _nombre_seguro(nombre: str, usados: set[str]) -> str:
     return candidato
 
 
+def _es_en_seco(exc: PortError) -> bool:
+    """El PortError con que el núcleo frena una escritura en un dry run (core#34)."""
+    return "dry run" in str(exc)
+
+
 def _contenido_de(parte) -> bytes:
     if parte.get_content_type() == "message/rfc822":
         adjunto = parte.get_payload(0) if parte.is_multipart() else parte.get_content()
@@ -188,6 +206,7 @@ def _respuesta_para(msg, asunto: str, remitente: str, referencias: str, message_
 
 
 LEER = ToolManifest(
+    **_en_seco(),
     id="mime.leer",
     label="leer un mail",
     category="MIME",
@@ -271,7 +290,13 @@ def _leer(ctx: ToolContext) -> ToolResult:
         try:
             fs.make_dirs(carpeta)
         except PortError as exc:
-            return ToolResult.err(f"no se pudo crear '{carpeta}': {exc}", **_VACIOS_LEER)
+            if not _es_en_seco(exc):
+                return ToolResult.err(f"no se pudo crear '{carpeta}': {exc}", **_VACIOS_LEER)
+            # En un dry run el núcleo no deja escribir. Leer el mail sí: se
+            # listan los adjuntos sin guardarlos y el resto del flujo recibe
+            # asunto, texto y demás de verdad, que es para lo que corre en seco.
+            ctx.log(f"en seco: los adjuntos se listan pero no se guardan en {carpeta}", "warning")
+            carpeta = ""
     for i, parte in enumerate(partes, 1):
         tipo = parte.get_content_type()
         nombre = parte.get_filename() or f"adjunto-{i}{mimetypes.guess_extension(tipo) or '.bin'}"

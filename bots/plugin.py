@@ -80,6 +80,8 @@ campo "asignado a" que se escribe una sola vez). Ver el README.
 
 from __future__ import annotations
 
+import dataclasses
+
 import ast
 import json
 import os
@@ -219,7 +221,7 @@ MIGRAR_ACCION = Action(
 MANIFEST = PluginManifest(
     name="bots",
     label="Bots",
-    version="0.4.0",
+    version="0.4.1",
     doc="Hablar con otros Bots de la red desde un flujo: qué hacen, mandarles un caso, esperar el resultado.",
     ports=(port_names.HTTP, port_names.CLOCK),
     settings=(
@@ -402,6 +404,17 @@ def _como_objeto(valor) -> dict | None:
 
 def _timeout(ctx: ToolContext) -> float:
     return float(ctx.config(TIMEOUT) or 15)
+
+
+def _en_seco() -> dict:
+    """
+    `dry_run="run"` si el núcleo lo conoce (v0.3.1-beta.14, core#34): en un dry
+    run el tool corre de verdad, con fs y http en modo lectura, y la decisión que
+    sigue tiene con qué ramificar. Un núcleo anterior no tiene el campo y
+    `ToolManifest(dry_run=...)` reventaría al importar: ahí no se pasa.
+    """
+    campos = {f.name for f in dataclasses.fields(ToolManifest)}
+    return {"dry_run": "run"} if "dry_run" in campos else {}
 
 
 def _pedir(ctx: ToolContext, url: str, camino: str, *, method: str = "GET", payload: dict | None = None):
@@ -646,6 +659,7 @@ def _diferencias(origen: dict, destino: dict, secretos: list, detalle: bool) -> 
 # ── bots.estado ───────────────────────────────────────────────────────────
 
 ESTADO = ToolManifest(
+    **_en_seco(),
     id="bots.estado",
     label="estado de un Bot",
     category="BOTS",
@@ -680,6 +694,7 @@ def _estado(ctx: ToolContext) -> ToolResult:
 # ── bots.elegir_libre ─────────────────────────────────────────────────────
 
 ELEGIR_LIBRE = ToolManifest(
+    **_en_seco(),
     id="bots.elegir_libre",
     label="elegir el Bot más libre",
     category="BOTS",
@@ -852,6 +867,7 @@ def _esperar(ctx: ToolContext) -> ToolResult:
 # ── bots.comparar ─────────────────────────────────────────────────────────
 
 COMPARAR = ToolManifest(
+    **_en_seco(),
     id="bots.comparar",
     label="comparar contenido con otro Bot",
     category="BOTS",

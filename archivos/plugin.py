@@ -16,6 +16,8 @@ que el propio filesystem ya sabe.
 
 from __future__ import annotations
 
+import dataclasses
+
 import re
 
 from backend.core import ports as port_names
@@ -35,10 +37,21 @@ from backend.core.ports import PortError
 MANIFEST = PluginManifest(
     name="archivos",
     label="Archivos",
-    version="0.1.0",
+    version="0.1.1",
     doc="Mover, copiar, eliminar y renombrar archivos o carpetas, contra el port fs.",
     ports=(port_names.FS,),
 )
+
+
+def _en_seco() -> dict:
+    """
+    `dry_run="run"` si el núcleo lo conoce (v0.3.1-beta.14, core#34): en un dry
+    run el tool corre de verdad, con fs y http en modo lectura, y la decisión que
+    sigue tiene con qué ramificar. Un núcleo anterior no tiene el campo y
+    `ToolManifest(dry_run=...)` reventaría al importar: ahí no se pasa.
+    """
+    campos = {f.name for f in dataclasses.fields(ToolManifest)}
+    return {"dry_run": "run"} if "dry_run" in campos else {}
 
 # ── mover ───────────────────────────────────────────────────────────────
 
@@ -183,6 +196,7 @@ def _filtro(etiqueta: str, patron: str):
 
 
 BUSCAR = ToolManifest(
+    **_en_seco(),
     id="archivos.buscar",
     label="buscar",
     category="ARCHIVOS",
@@ -360,6 +374,7 @@ def _doc_patron(lado: str) -> str:
 
 
 COMPARAR_CONTEO = ToolManifest(
+    **_en_seco(),
     id="archivos.comparar_conteo",
     label="comparar conteo",
     category="ARCHIVOS",

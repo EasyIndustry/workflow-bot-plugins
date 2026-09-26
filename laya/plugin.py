@@ -33,6 +33,7 @@ respuestas al azar para mandarlas a una persona.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import json
 import re
 
@@ -75,7 +76,7 @@ MAX_PREGUNTAS = 64
 MANIFEST = PluginManifest(
     name="laya",
     label="Laya",
-    version="0.2.1",
+    version="0.2.2",
     doc="Decisiones tipadas sobre un texto o una fila (sí/no, elegir, puntuar) con Laya, un modelo local. "
     + INSTALAR_SERVIDOR,
     ports=(port_names.HTTP,),
@@ -100,6 +101,18 @@ MANIFEST = PluginManifest(
         ),
     ),
 )
+
+
+
+def _en_seco() -> dict:
+    """
+    `dry_run="run"` si el núcleo lo conoce (v0.3.1-beta.14, core#34): en un dry
+    run el tool corre de verdad, con fs y http en modo lectura. Un núcleo
+    anterior no tiene el campo y `ToolManifest(dry_run=...)` reventaría al
+    importar: ahí no se pasa.
+    """
+    campos = {f.name for f in dataclasses.fields(ToolManifest)}
+    return {"dry_run": "run"} if "dry_run" in campos else {}
 
 
 # ── Lo que llega del flujo ────────────────────────────────────────────────
@@ -494,6 +507,7 @@ def _preguntar(ctx: ToolContext) -> ToolResult:
 # ── laya.disponible ───────────────────────────────────────────────────────
 
 DISPONIBLE = ToolManifest(
+    **_en_seco(),
     id="laya.disponible",
     label="está disponible",
     category="LAYA",
