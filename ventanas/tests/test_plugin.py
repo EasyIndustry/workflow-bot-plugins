@@ -144,6 +144,87 @@ def test_un_handle_de_otra_corrida_es_err_del_port():
     assert resultado.status == "err"
 
 
+
+class CheckboxDeVerdad(FakeWindow):
+    """Un click sobre un control con estado lo invierte, como en la app. El
+    `FakeWindow` del núcleo guiona el estado pero el click no lo toca."""
+
+    def __init__(self, estado, *, trabado=False):
+        super().__init__({TITULO: {}}, states={TITULO: {CHECK: estado}})
+        self.trabado = trabado
+
+    def click(self, window, control, *, button="left", timeout=None):
+        super().click(window, control, button=button, timeout=timeout)
+        estados = self.states[TITULO]
+        if not self.trabado and estados.get(control) in ("on", "off", "indeterminate"):
+            estados[control] = "off" if estados[control] == "on" else "on"
+
+
+CHECK = "CheckBox:Modo rápido"
+
+
+def _marcar(window, **params):
+    _correr("encontrar", window=window, titulo=TITULO)
+    return _registry(window).execute(
+        "ventanas.marcar_checkbox", _ctx_factory({"ventana": VENTANA, "control": CHECK, **params}),
+    )
+
+
+def _clicks(window):
+    return [c for c in window.calls if c["op"] == "click"]
+
+
+def test_marcar_tildado_clickea_solo_si_hace_falta():
+    window = CheckboxDeVerdad("off")
+    r = _marcar(window, estado="tildado")
+    assert r.status == "ok" and r.outputs == {"estado": "on", "cambio": True}
+    assert len(_clicks(window)) == 1
+
+    # Ya tildado: lo deja como está, que es justo lo que un toggle no sabe hacer.
+    window = CheckboxDeVerdad("on")
+    r = _marcar(window, estado="tildado")
+    assert r.status == "ok" and r.outputs == {"estado": "on", "cambio": False}
+    assert _clicks(window) == []
+
+
+def test_marcar_destildado_y_desde_indeterminado():
+    window = CheckboxDeVerdad("on")
+    assert _marcar(window, estado="destildado").outputs == {"estado": "off", "cambio": True}
+
+    window = CheckboxDeVerdad("indeterminate")
+    r = _marcar(window, estado="destildado")
+    assert r.status == "ok" and r.outputs["estado"] == "off"
+    assert len(_clicks(window)) == 2  # indeterminado → on → off
+
+
+def test_marcar_confirma_y_es_err_si_el_click_no_lo_cambio():
+    # Una app que ignora el click (deshabilitado, otro control con el mismo
+    # nombre): decir ok sería mentir sobre cómo quedó.
+    window = CheckboxDeVerdad("off", trabado=True)
+    r = _marcar(window, estado="tildado")
+    assert r.status == "err" and "quedó 'off'" in r.message
+    assert r.outputs == {"estado": "off", "cambio": True}
+
+
+def test_marcar_algo_que_no_es_un_checkbox_es_err_sin_clickear():
+    window = CheckboxDeVerdad(None)
+    r = _marcar(window, estado="tildado")
+    assert r.status == "err" and "no tiene estado" in r.message
+    assert _clicks(window) == []
+
+
+def test_alternar_sigue_siendo_un_click_sin_leer_y_anda_sin_read_state():
+    class SinReadState(FakeWindow):
+        read_state = None  # un núcleo anterior a v0.3.1-beta.6
+
+    window = SinReadState({TITULO: {}})
+    r = _marcar(window)
+    assert r.status == "ok" and r.outputs == {"estado": "", "cambio": True}
+    assert [c["op"] for c in window.calls] == ["find_window", "click"]
+
+    r = _marcar(SinReadState({TITULO: {}}), estado="tildado")
+    assert r.status == "err" and "v0.3.1-beta.6" in r.message
+
 # ── escribir_texto / leer_texto ──────────────────────────────────────────
 
 

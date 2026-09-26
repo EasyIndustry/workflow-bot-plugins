@@ -31,21 +31,19 @@ flujo puede guardar en una variable y pasar de un nodo a otro.
   peor que no tenerlo -pasaría por soportado sin estarlo-, así que no está.
   Para tenerlo hace falta ampliar `WindowPort.click` con un parámetro de
   botón (o un método nuevo) en `workflow-bot-core`.
-- **Leer si un checkbox está tildado.** `click` invocado sobre un
-  `CheckBox:` lo tilda/destilda (toggle), pero `read_text` devuelve el
-  nombre accesible del control, no su estado de "Toggle" de UI Automation
-  -son cosas distintas en el patrón de accesibilidad de Windows-. Por eso
-  `marcar_checkbox` de este plugin es sinónimo de `click`, no un "poner en
-  True/False": sin poder leer el estado actual, no hay forma de saber si
-  hace falta clickear o no para dejarlo como se pide. Un flujo que necesite
-  un estado exacto tiene que asumir el estado inicial (ej. "siempre arranca
-  destildado") o el port necesita un método de lectura de estado nuevo.
 - **Abrir la app.** `ProcessPort.run` espera a que el proceso termine antes
   de devolver el control (`backend/core/ports.py`), así que no sirve para
   lanzar una GUI que tiene que quedar abierta mientras el flujo sigue.
   La ventana ya tiene que estar
   abierta -tarea del operador, o de un paso previo del flujo con otro
   mecanismo- antes de usar cualquier tool de acá.
+
+`marcar_checkbox` con `estado=tildado|destildado` deja el checkbox como se
+pide: lee el estado con `WindowPort.read_state` (núcleo v0.3.1-beta.6,
+core#25), clickea sólo si hace falta y vuelve a leer para confirmar. El estado
+no está en `read_text` —ése devuelve la etiqueta, tildado o no—, por eso hace
+falta el método aparte. Sin `estado` sigue siendo un click que invierte, como
+siempre, y así anda también en un núcleo sin `read_state`.
 
 `seleccionar_en_lista` es la única excepción a "envoltura fina": es
 `click(dropdown)` + `click(opcion)` en un solo nodo, porque expandir un
@@ -72,7 +70,7 @@ from backend.core.ports import WindowInfo
 MANIFEST = PluginManifest(
     name="ventanas",
     label="Ventanas",
-    version="0.1.1",
+    version="0.2.0",
     doc="Encontrar una ventana de escritorio (Windows o Linux), clickear, tipear y leer sus controles — "
     "genérico, para cualquier app sin línea de comandos. En Linux necesita python3-pyatspi y una app "
     "que exponga su árbol de accesibilidad (GTK/Qt).",
@@ -144,9 +142,9 @@ CLICK = ToolManifest(
     category="VENTANAS",
     doc=(
         "Clickea 'control' dentro de 'ventana' (la que devolvió 'encontrar "
-        "ventana'). Sirve para un botón, para tildar/destildar un checkbox "
-        "(cada click invierte el estado: no hay forma de leerlo antes, ver "
-        "el docstring del módulo) y para abrir un combo/dropdown -después "
+        "ventana'). Sirve para un botón, para un checkbox (cada click invierte "
+        "el estado; para dejarlo tildado o destildado seguro, 'marcar checkbox' "
+        "con 'estado') y para abrir un combo/dropdown -después "
         "hace falta otro click sobre el ítem, o usar 'seleccionar en lista'. "
         "No hay click derecho: el port no lo soporta hoy."
     ),
@@ -165,25 +163,74 @@ def _click(ctx: ToolContext) -> ToolResult:
     return ToolResult.ok(f"click en '{control}'")
 
 
-# ── marcar_checkbox (alias semántico de click) ────────────────────────────
+# ── marcar_checkbox ───────────────────────────────────────────────────────
+
+_ALTERNAR, _TILDADO, _DESTILDADO = "alternar", "tildado", "destildado"
+_QUIERO = {_TILDADO: "on", _DESTILDADO: "off"}
 
 MARCAR_CHECKBOX = ToolManifest(
     id="ventanas.marcar_checkbox",
     label="marcar/desmarcar checkbox",
     category="VENTANAS",
     doc=(
-        "Alias de 'click' para dejar más claro en el flujo que 'control' es "
-        "un checkbox. Es un TOGGLE, no un 'poner en True/False': el port no "
-        "puede leer si ya está tildado (ver el docstring del módulo), así "
-        "que un flujo que necesite un estado exacto tiene que partir de un "
-        "estado inicial conocido."
+        "Deja un checkbox como se pide. Con estado=tildado o destildado lee cómo está, "
+        "clickea sólo si hace falta y confirma que quedó así (err si no). Con 'alternar' "
+        "(el de siempre) es un click que invierte, sin leer nada."
     ),
-    params=(_PARAM_VENTANA, Param("control", required=True, doc=_PARAM_CONTROL_DOC + " Normalmente con el tipo 'CheckBox:' delante."), Param("timeout", ParamType.FLOAT, default=15.0)),
+    params=(
+        _PARAM_VENTANA,
+        Param("control", required=True, doc=_PARAM_CONTROL_DOC + " Normalmente con el tipo 'CheckBox:' delante."),
+        Param(
+            "estado", ParamType.ENUM, default=_ALTERNAR, choices=(_ALTERNAR, _TILDADO, _DESTILDADO),
+            doc="'tildado' o 'destildado' para dejarlo así, lo esté o no; 'alternar' invierte. "
+            "Tildado/destildado necesita núcleo v0.3.1-beta.6.",
+        ),
+        Param("timeout", ParamType.FLOAT, default=15.0),
+    ),
+    outputs=(
+        Output("estado", ParamType.STR, doc="Cómo quedó: 'on' u 'off'. Vacío con 'alternar', que no lo lee."),
+        Output("cambio", ParamType.BOOL, doc="Si hizo falta clickear."),
+    ),
 )
 
 
 def _marcar_checkbox(ctx: ToolContext) -> ToolResult:
-    return _click(ctx)
+    estado = ctx.params.get("estado") or _ALTERNAR
+    if estado == _ALTERNAR:
+        resultado = _click(ctx)
+        resultado.outputs.update(estado="", cambio=not resultado.failed)
+        return resultado
+
+    ventana = _ventana_de(ctx)
+    if isinstance(ventana, ToolResult):
+        return ventana
+    window = ctx.port(port_names.WINDOW)
+    control, timeout, quiero = ctx.params["control"], ctx.params["timeout"], _QUIERO[estado]
+    leer = getattr(window, "read_state", None)
+    if not callable(leer):
+        return ToolResult.err(
+            f"este núcleo no puede leer el estado de un checkbox (read_state llegó en v0.3.1-beta.6); "
+            f"actualizarlo, o usar estado=alternar partiendo de un estado conocido",
+            estado="", cambio=False,
+        )
+
+    actual = leer(ventana, control, timeout=timeout)
+    if actual is None:
+        return ToolResult.err(f"'{control}' no tiene estado de tildado: ¿es un checkbox?", estado="", cambio=False)
+    # Un indeterminado ("a medias") puede pedir dos clicks según la app: se
+    # clickea hasta llegar, con un tope para no quedar dando vueltas.
+    clicks = 0
+    while actual != quiero and clicks < 3:
+        window.click(ventana, control, timeout=timeout)
+        clicks += 1
+        actual = leer(ventana, control, timeout=timeout)
+    if actual != quiero:
+        return ToolResult.err(
+            f"'{control}' quedó '{actual}' después de {clicks} click(s); se pidió {estado}",
+            estado=actual or "", cambio=clicks > 0,
+        )
+    ctx.log(f"'{ventana.title}': '{control}' {estado}" + (f" ({clicks} click)" if clicks else " (ya estaba)"))
+    return ToolResult.ok(estado=actual, cambio=clicks > 0)
 
 
 # ── escribir_texto ──────────────────────────────────────────────────────
