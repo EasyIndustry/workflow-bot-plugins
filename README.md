@@ -4,7 +4,10 @@
 
 ## Qué es esto (y qué no es)
 
-Este repo **no aloja código de plugins**. Es un índice: cada plugin es un paquete Python instalable (PyPI o `git+https://...`) que vive en su propio repositorio, con su propio ciclo de releases, issues y mantenedor. Acá solo se registra metadata que permite descubrirlo e instalarlo.
+Es un índice, y para algunos plugins también el lugar donde vive su código. Una entrada puede ser de dos tipos:
+
+- **Sólo índice**: el plugin es un paquete Python instalable (PyPI o `git+https://...`) que vive en su propio repositorio, con su propio ciclo de releases, issues y mantenedor. Acá sólo se registra la metadata que permite descubrirlo e instalarlo.
+- **Con código** (`path` en la entrada): el paquete vive en una carpeta de este mismo repo. Es lo que instala la webapp de `workflow-bot-app` desde Plug ins → *Plugins en línea*: baja la rama, saca la carpeta `path`, la valida en otro proceso y la copia a `plugins_dir`. Las máquinas de planta no tienen PyPI; un tarball de GitHub, sí.
 
 Un plugin es un paquete que expone un `PluginManifest` (definido en `backend/core/contract.py` de `workflow-bot-core`) con las `Tool`/`Action` que ofrece, y que declara qué **ports** del core necesita (`http`, `fs`, `process`, `clock`, `browser`, `window`) en lugar de importar esas librerías directamente. El core lo carga en runtime vía entry point.
 
@@ -14,6 +17,8 @@ Un plugin es un paquete que expone un `PluginManifest` (definido en `backend/cor
 
 ```
 plugins/<name>.json     # una entrada por plugin (ver schema/plugin.schema.json)
+<name>/                 # el código, si la entrada declara `path`: paquete con __init__.py que exporta PLUGIN
+<name>/tests/           # sus tests, con los fakes del núcleo
 schema/plugin.schema.json
 docs/curar-un-plugin.md
 ```
@@ -51,7 +56,18 @@ Un archivo por plugin, no un índice monolítico: así cada PR que agrega o actu
 
 4. Registrá el plugin según el mecanismo de entry points de `workflow-bot-core` (ver la documentación de ese repo) y confirmá que los `ports` que pide son los que esperás — son la superficie de acceso que le estás dando.
 
-No hay instalación automática ni un comando propio de este repo: es una referencia, no un gestor de paquetes.
+Para una entrada con `path` no hace falta nada de esto: la instala la webapp desde Plug ins → *Plugins en línea*, eligiendo la rama (`cured` para producción, `drafts` para lo que todavía se está probando).
+
+## Plugins con código en este repo
+
+| name | qué hace | ports |
+|---|---|---|
+| `archivos` | mover, copiar, eliminar, renombrar, buscar (por etiqueta o regex, bajando primero a la subcarpeta del caso) y comparar el conteo de dos carpetas | fs |
+| `procesos` | saber si un programa está corriendo | process |
+| `ventanas` | automatizar una ventana nativa de Windows: encontrarla, clickear, escribir y leer sus controles | window |
+| `bots` | coordinar otros Bots de la red desde un flujo (estado, mandar un caso, esperar el resultado) y comparar o migrar flujos y registros entre Bots; ver [`bots/README.md`](./bots/README.md) | http, clock |
+
+Las llamadas HTTP guardadas no son un plugin de este repo: son Actions del plugin `connections`, que viene con `workflow-bot-app`.
 
 ## Proponer un plugin nuevo
 

@@ -1,0 +1,13 @@
+{
+  "name": "procesos",
+  "description": "Saber si un programa está corriendo en la máquina (tasklist / ps), contra el port process.",
+  "source": "workflow-bot-plugin-procesos",
+  "path": "procesos",
+  "ports": [
+    "process"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.0b4",
+  "license": "MIT"
+}

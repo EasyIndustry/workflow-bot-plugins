@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/EasyIndustry/plugins-registry/schema/plugin.schema.json",
   "title": "workflow-bot-core Plugin Manifest Entry",
-  "description": "Entrada del índice para un plugin de workflow-bot-core. Un archivo plugins/<name>.json por plugin.",
+  "description": "Entrada del catálogo para un plugin de workflow-bot-core. Un archivo plugins/<name>.json por plugin; con `path`, el código vive en este mismo repo.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -37,7 +37,14 @@
       "description": "Ports de workflow-bot-core que declara este plugin.",
       "items": {
         "type": "string",
-        "enum": ["http", "fs", "process", "clock", "browser", "window"]
+        "enum": [
+          "http",
+          "fs",
+          "process",
+          "clock",
+          "browser",
+          "window"
+        ]
       },
       "minItems": 1,
       "uniqueItems": true
@@ -61,6 +68,16 @@
     "license": {
       "type": "string",
       "description": "Identificador de licencia SPDX (ej. 'MIT', 'Apache-2.0').",
+      "minLength": 1
+    },
+    "path": {
+      "type": "string",
+      "description": "Carpeta de ESTE repo con el código del plugin (un paquete con __init__.py que exporte PLUGIN). Es lo que la webapp de Bot instala bajando la rama; sin este campo la entrada es sólo índice.",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*(/[A-Za-z0-9_.-]+)*$"
+    },
+    "compatible_runtime": {
+      "type": "string",
+      "description": "Sólo si el plugin trae requirements.txt: el tag de release de workflow-bot-app (runtime-release.json) contra el que se generaron las versiones y hashes, ej. 'v0.4.2-beta.1'. Ver EasyIndustry/workflow-bot-plugins#1.",
       "minLength": 1
     }
   }

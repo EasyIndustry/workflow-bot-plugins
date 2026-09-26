@@ -1,0 +1,14 @@
+{
+  "name": "bots",
+  "description": "Coordinar otros Bots de la red desde un flujo: qué hacen, mandarles un caso, esperar el resultado. Y comparar y migrar flujos o registros entre Bots desde la pantalla.",
+  "source": "workflow-bot-plugin-bots",
+  "path": "bots",
+  "ports": [
+    "http",
+    "clock"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.1b11",
+  "license": "MIT"
+}

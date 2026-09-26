@@ -1,10 +1,13 @@
 {
   "name": "archivos",
-  "description": "Tools genéricas de lectura, escritura y manejo de archivos locales para flujos de workflow-bot-core.",
+  "description": "Mover, copiar, eliminar, renombrar, buscar (bajando primero a la subcarpeta del caso, por etiqueta o regex) y comparar el conteo de dos carpetas, contra el port fs.",
   "source": "workflow-bot-plugin-archivos",
-  "ports": ["fs"],
+  "path": "archivos",
+  "ports": [
+    "fs"
+  ],
   "maintainer": "EasyIndustry",
-  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugin-archivos",
-  "compatible_core": ">=0.3.0",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.0b4",
   "license": "MIT"
 }

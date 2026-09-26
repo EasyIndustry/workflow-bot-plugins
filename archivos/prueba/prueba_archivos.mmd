@@ -1,0 +1,13 @@
+%% folder: PRUEBAS
+%% description: Prueba de punta a punta del plugin externo archivos: crea, copia, renombra y borra.
+flowchart TD
+    SN(inicio)
+    N1["Copiar caso § archivos.copiar | origen=plugins/archivos/prueba/origen.txt, destino=plugins/archivos/prueba/copia.txt"]
+    N2["Renombrar copia § archivos.renombrar | ruta=plugins/archivos/prueba/copia.txt, nombre_nuevo=renombrada.txt"]
+    N3["Mover renombrada § archivos.mover | origen=plugins/archivos/prueba/renombrada.txt, destino=plugins/archivos/prueba/final.txt"]
+    N4["Eliminar final § archivos.eliminar | ruta=plugins/archivos/prueba/final.txt"]
+    SN --> N1
+    N1 -->|ok| N2
+    N1 -->|err| N4
+    N2 -->|ok| N3
+    N3 -->|ok| N4

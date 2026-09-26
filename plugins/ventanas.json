@@ -1,0 +1,13 @@
+{
+  "name": "ventanas",
+  "description": "Automatizar una ventana nativa de Windows: encontrarla, clickear (botón, checkbox, dropdown), escribir y leer sus controles. Genérico, para apps sin línea de comandos.",
+  "source": "workflow-bot-plugin-ventanas",
+  "path": "ventanas",
+  "ports": [
+    "window"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.0b4",
+  "license": "MIT"
+}

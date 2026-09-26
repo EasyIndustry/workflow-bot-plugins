@@ -57,6 +57,23 @@ pip install "<source>"
 
 Si falla acá (dependencias rotas, build errors), es motivo de rechazo o de pedir cambios en el PR — no lo arregles vos silenciosamente en el paquete del plugin.
 
+### d-bis) Si el plugin trae `requirements.txt` (dependencias de cómputo)
+
+Convención de `EasyIndustry/workflow-bot-plugins#1`: un plugin puede declarar librerías de cómputo puro (numpy, trimesh, etc. — no las que hacen I/O, esas van por port) en un `requirements.txt` junto a su `__init__.py`, con `==versión` y `--hash=sha256:...` por línea. La app las instala con `pip install --only-binary :all: --require-hashes`, así que:
+
+- Bajá la wheel de cada dependencia vos mismo desde PyPI (nunca confíes en el hash que trae el PR — un hash correcto solo garantiza que la wheel no cambió *después*, no que sea la que corresponde):
+
+  ```bash
+  pip download --only-binary :all: --platform win_amd64 \
+      --python-version <la de runtime-release.json> --implementation cp --abi cp<versión> \
+      -d /tmp/wheels-<name> <cada dependencia declarada>
+  pip hash /tmp/wheels-<name>/*.whl
+  ```
+
+- Confirmá que el `requirements.txt` no le falta ninguna transitiva: revisá `Requires-Dist` en el `METADATA` de cada wheel (`pip download` sin `--no-deps` ya las resuelve; comprobalo mirando qué bajó).
+- Fijate que `compatible_runtime` en `plugins/<name>.json` sea el tag del release de `workflow-bot-app` cuyo `runtime-release.json` usaste (Python + plataforma).
+- Si el plugin trae una carpeta `wheels/` para instalaciones sin internet, no debería estar commiteada en un repo — se espera como asset de un release, no en el árbol de `git` (un binario de varios MB por bump de versión infla el historial para siempre).
+
 ### e) Cargar el plugin y confirmar el manifest real
 
 Cargalo como lo haría `workflow-bot-core` (vía su mecanismo de entry points) e inspeccioná el `PluginManifest` que expone en runtime. Confirmá:
@@ -94,6 +111,7 @@ Aprobá y mergeá el PR solo si:
 - [ ] Instalaste `bot-core` en la versión de `compatible_core` y el paquete propuesto, ambos sin errores, en un entorno aislado.
 - [ ] El plugin carga y sus `ports` en runtime coinciden exactamente con los declarados.
 - [ ] Corriste su suite de tests (o tu smoke test mínimo) y pasó.
+- [ ] Si trae `requirements.txt`: generaste vos mismo los hashes desde PyPI, no faltan transitivas, y `compatible_runtime` corresponde al release usado.
 - [ ] El plugin es genérico, no atado a un negocio o cliente puntual.
 - [ ] La licencia declarada es real y está en el repo del plugin.
 
