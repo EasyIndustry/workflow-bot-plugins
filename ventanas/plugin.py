@@ -24,13 +24,13 @@ flujo puede guardar en una variable y pasar de un nodo a otro.
 
 **Qué NO hace, a propósito, porque el port no lo tiene hoy:**
 
-- **Click derecho.** `WindowPort.click` sólo hace el click primario
-  (`invoke()` de UI Automation, con fallback a `click_input()` simulando el
-  mouse). No hay forma de pedir el secundario. Agregar un
-  tool `click_derecho` que no puede clickear con el botón derecho sería
-  peor que no tenerlo -pasaría por soportado sin estarlo-, así que no está.
-  Para tenerlo hace falta ampliar `WindowPort.click` con un parámetro de
-  botón (o un método nuevo) en `workflow-bot-core`.
+- **Click derecho en Linux.** `click` con `boton=derecho|medio` pasa
+  `button=` a `WindowPort.click` (núcleo v0.3.1-beta.6, core#25). En Windows
+  sale simulando el mouse (`click_input`), porque un menú contextual es un
+  evento de mouse y no una acción del control; eso mueve el cursor físico, con
+  lo que eso implica en una máquina con acceso remoto. En Linux AT-SPI sólo
+  dispara la acción por defecto del control: el adapter lo rechaza con un
+  error que lo dice, y el nodo queda en err en vez de fingir un click.
 - **Abrir la app.** `ProcessPort.run` espera a que el proceso termine antes
   de devolver el control (`backend/core/ports.py`), así que no sirve para
   lanzar una GUI que tiene que quedar abierta mientras el flujo sigue.
@@ -70,7 +70,7 @@ from backend.core.ports import WindowInfo
 MANIFEST = PluginManifest(
     name="ventanas",
     label="Ventanas",
-    version="0.2.0",
+    version="0.3.0",
     doc="Encontrar una ventana de escritorio (Windows o Linux), clickear, tipear y leer sus controles — "
     "genérico, para cualquier app sin línea de comandos. En Linux necesita python3-pyatspi y una app "
     "que exponga su árbol de accesibilidad (GTK/Qt).",
@@ -146,10 +146,20 @@ CLICK = ToolManifest(
         "el estado; para dejarlo tildado o destildado seguro, 'marcar checkbox' "
         "con 'estado') y para abrir un combo/dropdown -después "
         "hace falta otro click sobre el ítem, o usar 'seleccionar en lista'. "
-        "No hay click derecho: el port no lo soporta hoy."
+        "Con boton=derecho abre el menú contextual (sólo Windows)."
     ),
-    params=(_PARAM_VENTANA, Param("control", required=True, doc=_PARAM_CONTROL_DOC), Param("timeout", ParamType.FLOAT, default=15.0)),
+    params=(
+        _PARAM_VENTANA,
+        Param("control", required=True, doc=_PARAM_CONTROL_DOC),
+        Param(
+            "boton", ParamType.ENUM, default="izquierdo", choices=("izquierdo", "derecho", "medio"),
+            doc="'derecho' o 'medio' simulan el mouse y sólo andan en Windows, con núcleo v0.3.1-beta.6.",
+        ),
+        Param("timeout", ParamType.FLOAT, default=15.0),
+    ),
 )
+
+_BOTONES = {"izquierdo": "left", "derecho": "right", "medio": "middle"}
 
 
 def _click(ctx: ToolContext) -> ToolResult:
@@ -158,9 +168,20 @@ def _click(ctx: ToolContext) -> ToolResult:
         return ventana
     window = ctx.port(port_names.WINDOW)
     control = ctx.params["control"]
-    window.click(ventana, control, timeout=ctx.params["timeout"])
-    ctx.log(f"'{ventana.title}': click en '{control}'")
-    return ToolResult.ok(f"click en '{control}'")
+    boton = ctx.params.get("boton") or "izquierdo"
+    if boton == "izquierdo":
+        # Sin `button=`: el click de siempre, que anda también con un núcleo
+        # anterior a que el port lo aceptara.
+        window.click(ventana, control, timeout=ctx.params["timeout"])
+    else:
+        try:
+            window.click(ventana, control, button=_BOTONES[boton], timeout=ctx.params["timeout"])
+        except TypeError:
+            return ToolResult.err(
+                f"este núcleo no hace click {boton} (WindowPort.click(button=) llegó en v0.3.1-beta.6)"
+            )
+    ctx.log(f"'{ventana.title}': click {boton} en '{control}'")
+    return ToolResult.ok(f"click {boton} en '{control}'")
 
 
 # ── marcar_checkbox ───────────────────────────────────────────────────────

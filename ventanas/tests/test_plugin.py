@@ -145,6 +145,32 @@ def test_un_handle_de_otra_corrida_es_err_del_port():
 
 
 
+
+def test_click_derecho_y_medio_pasan_el_boton_al_port():
+    for boton, button in (("derecho", "right"), ("medio", "middle")):
+        window = FakeWindow({TITULO: {}})
+        _correr("encontrar", window=window, titulo=TITULO)
+        r = _registry(window).execute(
+            "ventanas.click", _ctx_factory({"ventana": VENTANA, "control": "Button:Generate path", "boton": boton}),
+        )
+        assert r.status == "ok"
+        assert window.calls[-1]["button"] == button
+
+
+def test_click_izquierdo_no_manda_button_para_andar_con_un_nucleo_viejo():
+    class Viejo(FakeWindow):
+        def click(self, window, control, *, timeout=None):  # sin `button`
+            self.calls.append({"op": "click", "control": control})
+
+    window = Viejo({TITULO: {}})
+    _correr("encontrar", window=window, titulo=TITULO)
+    ok = _registry(window).execute("ventanas.click", _ctx_factory({"ventana": VENTANA, "control": "Guardar"}))
+    assert ok.status == "ok"
+    derecho = _registry(window).execute(
+        "ventanas.click", _ctx_factory({"ventana": VENTANA, "control": "Guardar", "boton": "derecho"}),
+    )
+    assert derecho.status == "err" and "v0.3.1-beta.6" in derecho.message
+
 class CheckboxDeVerdad(FakeWindow):
     """Un click sobre un control con estado lo invierte, como en la app. El
     `FakeWindow` del núcleo guiona el estado pero el click no lo toca."""
