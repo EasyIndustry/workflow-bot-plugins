@@ -59,6 +59,15 @@ MODELO = "modelo"
 # 8010 y no el 8000 que usa `laya-serve` por defecto: el 8000 es el del Bot, y
 # los dos suelen correr en la misma máquina.
 URL_POR_DEFECTO = "http://127.0.0.1:8010"
+# Lo que hay que instalar aparte. Va en el doc del plugin, en la ayuda de la
+# dirección y en el error de "no responde": son los lugares que la app muestra
+# (el README del plugin no lo ve nadie que no abra el repo).
+INSTALAR_SERVIDOR = (
+    "Necesita laya-serve corriendo aparte, en esta PC o en otra de la red (mejor con GPU). "
+    "Se instala una vez: 'pip install laya fastapi uvicorn' y se arranca con "
+    "'LAYA_PORT=8010 LAYA_MODELS=multilingual laya-serve' (en Windows: set LAYA_PORT=8010, "
+    "set LAYA_MODELS=multilingual, laya-serve). La primera vez baja ~1,5 GB de modelo."
+)
 DUDOSO = "dudoso"
 # El tope de laya-serve (MAX_QUESTIONS): pasarlo es un 413 que se ve mejor acá.
 MAX_PREGUNTAS = 64
@@ -66,13 +75,14 @@ MAX_PREGUNTAS = 64
 MANIFEST = PluginManifest(
     name="laya",
     label="Laya",
-    version="0.2.0",
-    doc="Decisiones tipadas sobre un texto o una fila (sí/no, elegir, puntuar) con Laya, un modelo local.",
+    version="0.2.1",
+    doc="Decisiones tipadas sobre un texto o una fila (sí/no, elegir, puntuar) con Laya, un modelo local. "
+    + INSTALAR_SERVIDOR,
     ports=(port_names.HTTP,),
     settings=(
         Setting(
             URL, ParamType.STR, label="Dirección de laya-serve", default=URL_POR_DEFECTO,
-            doc="Donde corre `laya-serve` (ver el README del plugin). Puede ser otra PC de la red.",
+            doc="Donde corre laya-serve: http://<PC>:<LAYA_PORT>. " + INSTALAR_SERVIDOR,
         ),
         Setting(
             API_KEY, ParamType.STR, label="Clave", secret=True,
@@ -294,7 +304,7 @@ def _consultar(ctx: ToolContext, preguntas: dict[str, dict]) -> dict[str, dict] 
     try:
         respuesta, datos = _pedir(ctx, "POST", "/v1/systemone", payload)
     except PortError as exc:
-        return f"laya-serve no responde en {_base(ctx)}: {exc}"
+        return f"laya-serve no responde en {_base(ctx)} ({exc}). {INSTALAR_SERVIDOR}"
     if respuesta.status == 401:
         return "laya-serve pide clave y la de Config no coincide (401)"
     if not respuesta.ok:
@@ -499,7 +509,7 @@ def _disponible(ctx: ToolContext) -> ToolResult:
     try:
         respuesta, datos = _pedir(ctx, "GET", "/health")
     except PortError as exc:
-        return ToolResult.err(f"laya-serve no responde en {_base(ctx)}: {exc}", modelos=[])
+        return ToolResult.err(f"laya-serve no responde en {_base(ctx)} ({exc}). {INSTALAR_SERVIDOR}", modelos=[])
     if not respuesta.ok or not isinstance(datos, dict) or datos.get("status") != "ok":
         return ToolResult.err(f"{_base(ctx)} respondió {respuesta.status}: ¿es laya-serve?", modelos=[])
     modelos = datos.get("loaded") or []
