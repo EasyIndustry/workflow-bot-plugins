@@ -1,6 +1,6 @@
 """
-Plugin `ventanas` — automatizar una ventana nativa de Windows desde un
-flujo: encontrarla, clickear un control, escribirle texto, leerlo.
+Plugin `ventanas` — automatizar una ventana nativa de escritorio (Windows o
+Linux) desde un flujo: encontrarla, clickear un control, escribirle texto, leerlo.
 
 Por qué es un plugin aparte y no un tool de cada app: no tiene nada
 específico de una app en particular. El caso típico es una app de escritorio
@@ -12,7 +12,12 @@ comandos.
 
 Los seis tools son una envoltura fina sobre `WindowPort`
 (`backend/core/ports.py`), nada más: el plugin no sabe qué hay detrás del
-adapter (en Windows, pywinauto vía UI Automation - `adapters/window_pywinauto.py`).
+adapter, que el núcleo elige según el sistema operativo: en Windows, pywinauto vía
+UI Automation (`adapters/window_pywinauto.py`); en Linux, el árbol de accesibilidad
+AT-SPI (`adapters/window_atspi.py`), que necesita el paquete del sistema
+`python3-pyatspi` visible desde el Python del Bot y una app que exponga su árbol
+(GTK y Qt sí; Wine en general no). En Linux escribir reemplaza el contenido del
+campo y el click dispara la acción por defecto del control, sin mover el mouse.
 `ventana` viaja entre nodos como el JSON que devuelve `encontrar` ({handle,
 titulo, proceso}), no como el objeto interno del port: es lo único que un
 flujo puede guardar en una variable y pasar de un nodo a otro.
@@ -67,8 +72,10 @@ from backend.core.ports import WindowInfo
 MANIFEST = PluginManifest(
     name="ventanas",
     label="Ventanas",
-    version="0.1.0",
-    doc="Encontrar una ventana nativa de Windows, clickear, tipear y leer sus controles — genérico, para cualquier app de escritorio sin línea de comandos.",
+    version="0.1.1",
+    doc="Encontrar una ventana de escritorio (Windows o Linux), clickear, tipear y leer sus controles — "
+    "genérico, para cualquier app sin línea de comandos. En Linux necesita python3-pyatspi y una app "
+    "que exponga su árbol de accesibilidad (GTK/Qt).",
     ports=(port_names.WINDOW,),
 )
 

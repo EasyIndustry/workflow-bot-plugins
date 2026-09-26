@@ -1,6 +1,6 @@
 {
   "name": "ventanas",
-  "description": "Automatizar una ventana nativa de Windows: encontrarla, clickear (botón, checkbox, dropdown), escribir y leer sus controles. Genérico, para apps sin línea de comandos.",
+  "description": "Automatizar una ventana de escritorio en Windows o Linux: encontrarla, clickear (botón, checkbox, dropdown), escribir y leer sus controles. Para apps sin línea de comandos.",
   "source": "workflow-bot-plugin-ventanas",
   "path": "ventanas",
   "ports": [
