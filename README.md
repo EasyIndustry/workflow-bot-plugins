@@ -67,6 +67,7 @@ Para una entrada con `path` no hace falta nada de esto: la instala la webapp des
 | `ventanas` | automatizar una ventana de escritorio en Windows o Linux (AT-SPI): encontrarla, clickear, escribir y leer sus controles | window |
 | `bots` | coordinar otros Bots de la red desde un flujo (estado, mandar un caso, esperar el resultado) y comparar o migrar flujos y registros entre Bots; ver [`bots/README.md`](./bots/README.md) | http, clock |
 | `laya` | decisiones tipadas sobre un texto o una fila (sí/no, elegir, puntuar) con Laya, un modelo local que corre aparte como `laya-serve`; ver [`laya/README.md`](./laya/README.md) | http |
+| `mime` | leer un mail crudo (asunto, remitente, cuerpo en texto, adjuntos a una carpeta) y armar uno para enviar o responder en el hilo; ver [`mime/README.md`](./mime/README.md) | fs |
 
 Las llamadas HTTP guardadas no son un plugin de este repo: son Actions del plugin `connections`, que viene con `workflow-bot-app`.
 

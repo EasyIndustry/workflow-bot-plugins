@@ -1,0 +1,13 @@
+{
+  "name": "mime",
+  "description": "Leer un mail crudo (asunto, remitente, cuerpo en texto, adjuntos a una carpeta) y armar uno para enviar o responder en el hilo. Sin dependencias; contra el port fs.",
+  "source": "workflow-bot-plugin-mime",
+  "path": "mime",
+  "ports": [
+    "fs"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.0b4",
+  "license": "MIT"
+}
