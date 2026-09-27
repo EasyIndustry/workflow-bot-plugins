@@ -176,7 +176,9 @@ def test_tipos_numero_json_lista_json_y_formato_form():
 
 
 def test_el_editor_ofrece_los_campos_de_la_plantilla_elegida():
-    leer = lambda coleccion, nombre: next((p for p in _plantillas() if p["nombre"] == nombre), None)
+    def leer(coleccion, clave, key_field="name"):
+        """Como el lector del núcleo (Instance._lector_de_items): busca por `key_field`, "name" si no se dice."""
+        return next((p for p in _plantillas() if str(p.get(key_field, "")) == clave), None) if coleccion == "plantillas" else None
     params = modulo._describir_extras({"plantilla": "Telegram mensaje"}, leer)
     assert [(p.name, p.required) for p in params] == [("chat", True), ("mensaje", True), ("menu", False), ("formato", False)]
     archivo = modulo._describir_extras({"plantilla": "Telegram archivo"}, leer)

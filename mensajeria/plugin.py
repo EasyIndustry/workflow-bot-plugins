@@ -121,7 +121,7 @@ CREAR_TELEGRAM = Action(
 MANIFEST = PluginManifest(
     name="mensajeria",
     label="Mensajería",
-    version="0.1.1",
+    version="0.1.2",
     doc=(
         "Mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas que "
         "arma cada uno: sus campos, cómo se envía y cómo se lee lo recibido."
@@ -397,7 +397,10 @@ def _detalle(respuesta, datos) -> str:
 def _describir_extras(node_params: dict, leer_item) -> tuple[Param, ...]:
     """Los campos de la plantilla elegida, como params del nodo (core#27)."""
     nombre = (node_params.get("plantilla") or "").strip()
-    plantilla = leer_item("plantillas", nombre) if nombre else None
+    # `key_field` explícito: el lector del núcleo busca por "name" si no se le
+    # dice, y las plantillas se identifican por "nombre" — sin esto no
+    # encontraba ninguna y la tarjeta no mostraba los campos.
+    plantilla = leer_item("plantillas", nombre, key_field="nombre") if nombre else None
     campos = _campos(plantilla) if plantilla else []
     if isinstance(campos, str):
         return ()
