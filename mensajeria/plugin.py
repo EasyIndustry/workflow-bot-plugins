@@ -121,7 +121,7 @@ CREAR_TELEGRAM = Action(
 MANIFEST = PluginManifest(
     name="mensajeria",
     label="Mensajería",
-    version="0.1.4",
+    version="0.1.5",
     doc=(
         "Mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas que "
         "arma cada uno: sus campos, cómo se envía y cómo se lee lo recibido."
@@ -360,7 +360,7 @@ class _FaltaVariable(Exception):
     pass
 
 
-def _pedir(ctx: ToolContext, plantilla: dict, metodo: str, url: str, formato: str = "", cuerpo=None):
+def _pedir(ctx: ToolContext, plantilla: dict, metodo: str, url: str, formato: str = "", cuerpo=None, espera: int = 0):
     headers = {str(k): str(v) for k, v in (_objeto(plantilla.get("headers")) or {}).items()}
     # El núcleo reemplaza {env.X} al entregar la plantilla; si quedó uno es que
     # la variable no existe. Mandarlo así termina en un 401/404 del servicio que
@@ -377,9 +377,10 @@ def _pedir(ctx: ToolContext, plantilla: dict, metodo: str, url: str, formato: st
             body, headers["Content-Type"] = urlencode(planos), "application/x-www-form-urlencoded"
         else:
             body, headers["Content-Type"] = json.dumps(cuerpo, ensure_ascii=False), "application/json"
-    respuesta = ctx.port(port_names.HTTP).request(
-        url, method=metodo, headers=headers, body=body, timeout=float(ctx.config(TIMEOUT) or 30),
-    )
+    # Con espera, el servicio tiene el pedido abierto hasta que llega algo
+    # ("long polling"): el timeout propio tiene que durar más, o se corta antes.
+    timeout = max(float(ctx.config(TIMEOUT) or 30), espera + 15.0)
+    respuesta = ctx.port(port_names.HTTP).request(url, method=metodo, headers=headers, body=body, timeout=timeout)
     return respuesta, respuesta.json(default=None)
 
 
@@ -481,6 +482,12 @@ RECIBIR = ToolManifest(
     params=(
         Param("plantilla", required=True, options_from="plantillas", doc="Nombre de la plantilla."),
         Param("limite", ParamType.INT, default=10, doc="Cuántos mensajes como máximo. Los demás quedan para la próxima."),
+        Param(
+            "espera", ParamType.INT, default=0,
+            doc="Segundos que el servicio puede esperar a que llegue algo antes de contestar vacío "
+            "({espera} en la ruta de la plantilla). 0: contesta enseguida. Con 50 y una arista |loop|, "
+            "el flujo queda escuchando y contesta un botón al instante (Telegram exige confirmarlo en segundos).",
+        ),
     ),
     # Las columnas de 'salida' las define cada plantilla: no se pueden declarar
     # de antemano, y sin esto el editor marcaría {chat} como variable inexistente.
@@ -547,9 +554,10 @@ def _recibir(ctx: ToolContext) -> ToolResult:
     if not isinstance(spec, dict) or not spec.get("ruta"):
         return ToolResult.err(f"la plantilla '{plantilla['nombre']}' no tiene 'recibir'", **vacios)
     cursor = str(plantilla.get("cursor") or "").strip()
-    url = _url(plantilla, spec["ruta"], {"cursor": cursor} if cursor else {})
+    espera = max(0, int(ctx.params.get("espera") or 0))
+    url = _url(plantilla, spec["ruta"], {"espera": espera, **({"cursor": cursor} if cursor else {})})
     try:
-        respuesta, datos = _pedir(ctx, plantilla, "GET", url)
+        respuesta, datos = _pedir(ctx, plantilla, "GET", url, espera=espera)
     except _FaltaVariable as exc:
         return ToolResult.err(f"{plantilla['nombre']}: {exc}", **vacios)
     except PortError as exc:
@@ -626,7 +634,7 @@ def _telegram(variable: str) -> list[dict]:
             "nombre": "Telegram recibir", "servicio": "Telegram", "url_base": base, "headers": {},
             "campos": [], "enviar": {},
             "recibir": {
-                "ruta": "/getUpdates?offset={cursor}&timeout=0", "lista": "result", "id": "update_id",
+                "ruta": "/getUpdates?offset={cursor}&timeout={espera}", "lista": "result", "id": "update_id",
                 "salida": {
                     "chat": "message.chat.id|callback_query.message.chat.id",
                     "texto": "message.text|message.caption",

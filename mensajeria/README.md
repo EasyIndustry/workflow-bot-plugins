@@ -64,7 +64,7 @@ params del nodo**, con su ayuda.
 ### Recibir
 
 ```json
-{"ruta": "/getUpdates?offset={cursor}&timeout=0", "lista": "result", "id": "update_id",
+{"ruta": "/getUpdates?offset={cursor}&timeout={espera}", "lista": "result", "id": "update_id",
  "salida": {"chat": "message.chat.id|callback_query.message.chat.id",
             "texto": "message.text|message.caption",
             "boton": "callback_query.data"}}
@@ -83,6 +83,14 @@ Categoría **MENSAJERÍA**.
 |---|---|---|
 | `mensajeria.enviar \| plantilla=Telegram mensaje, chat={chat}, mensaje=Hola, menu=Sí; No` | manda con la plantilla | `{id}`, `{status}`, `{respuesta}` |
 | `mensajeria.recibir \| plantilla=Telegram recibir, limite=10` | lee lo nuevo desde donde quedó | `{mensajes}`, `{primero}`, `{cantidad}`, `{hay}` (`si`/`no`), y cada columna de `salida` del primer mensaje suelta: `{chat}`, `{texto}`, `{boton}`… |
+
+**Escuchar en vez de consultar.** Con `espera=50` (y `{espera}` en la ruta de
+la plantilla) el servicio tiene el pedido abierto hasta 50 segundos y contesta
+en cuanto llega algo. Con un `flow.retry_gate` y una arista `|loop|` de vuelta
+a `recibir`, un run queda escuchando varios minutos seguidos, y programado
+queda escuchando siempre. Hace falta para los botones de Telegram: hay que
+confirmarlos a los pocos segundos de apretarlos, o el "cargando" queda
+girando y después ya no se puede ("query is too old").
 
 Lo leído no se vuelve a leer: el cursor se guarda antes de devolver los
 mensajes. Si el flujo falla después, esos mensajes no vuelven (vaciar el

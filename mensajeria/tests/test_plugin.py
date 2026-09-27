@@ -204,6 +204,7 @@ def _http_recibir(updates, cursor_en_url=""):
     guardada["_updated_at"] = 1790000000.0
     return FakeHttp({
         f"{TG}/getUpdates?offset={cursor_en_url}&timeout=0": _json(updates),
+        f"{TG}/getUpdates?offset={cursor_en_url}&timeout=50": _json(updates),
         f"{BOT}/resources/mensajeria/plantillas/Telegram%20recibir": _json(guardada),
     })
 
@@ -299,3 +300,15 @@ def test_una_variable_que_no_existe_se_dice_en_vez_de_llamar_al_servicio():
         r = _correr(tool, params, http, plantillas=sin_token)
         assert r.status == "err" and "falta la variable TELEGRAM_TOKEN" in r.message, r.message
     assert http.calls == []
+
+
+def test_con_espera_el_servicio_puede_tener_el_pedido_abierto_y_el_timeout_alcanza():
+    http = _http_recibir(UPDATES)
+    r = _correr("mensajeria.recibir", {"plantilla": "Telegram recibir", "espera": 50, "limite": 1}, http)
+    assert r.status == "ok", r.message
+    lectura = next(c for c in http.calls if "getUpdates" in c["url"])
+    assert lectura["url"].endswith("&timeout=50") and lectura["timeout"] >= 65
+
+    http = _http_recibir(UPDATES)
+    _correr("mensajeria.recibir", {"plantilla": "Telegram recibir", "limite": 1}, http)
+    assert next(c for c in http.calls if "getUpdates" in c["url"])["url"].endswith("&timeout=0")
