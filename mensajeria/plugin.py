@@ -121,7 +121,7 @@ CREAR_TELEGRAM = Action(
 MANIFEST = PluginManifest(
     name="mensajeria",
     label="Mensajería",
-    version="0.1.0",
+    version="0.1.1",
     doc=(
         "Mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas que "
         "arma cada uno: sus campos, cómo se envía y cómo se lee lo recibido."
@@ -353,8 +353,21 @@ def _multipart(cuerpo: dict) -> tuple[bytes, str]:
     return b"".join(partes) + f"--{frontera}--\r\n".encode(), f"multipart/form-data; boundary={frontera}"
 
 
+_ENV_SIN_RESOLVER = re.compile(r"\{env\.(\w+)\}")
+
+
+class _FaltaVariable(Exception):
+    pass
+
+
 def _pedir(ctx: ToolContext, plantilla: dict, metodo: str, url: str, formato: str = "", cuerpo=None):
     headers = {str(k): str(v) for k, v in (_objeto(plantilla.get("headers")) or {}).items()}
+    # El núcleo reemplaza {env.X} al entregar la plantilla; si quedó uno es que
+    # la variable no existe. Mandarlo así termina en un 401/404 del servicio que
+    # no dice nada (Telegram contesta 404 a un token inválido).
+    faltan = sorted({m.group(1) for texto in (url, *headers.values()) for m in _ENV_SIN_RESOLVER.finditer(texto)})
+    if faltan:
+        raise _FaltaVariable(f"falta la variable {', '.join(faltan)} en Config → Variables")
     body = None
     if cuerpo is not None and metodo not in ("GET", "HEAD"):
         if formato == "multipart":
@@ -437,6 +450,8 @@ def _enviar(ctx: ToolContext) -> ToolResult:
     url = _url(plantilla, envio.get("ruta") or "", valores)
     try:
         respuesta, datos = _pedir(ctx, plantilla, metodo, url, formato, cuerpo)
+    except _FaltaVariable as exc:
+        return ToolResult.err(f"{plantilla['nombre']}: {exc}", **vacios)
     except PortError as exc:
         return ToolResult.err(f"{plantilla['nombre']}: el servicio no responde: {exc}", **vacios)
     if not respuesta.ok or (isinstance(datos, dict) and datos.get("ok") is False):
@@ -524,6 +539,8 @@ def _recibir(ctx: ToolContext) -> ToolResult:
     url = _url(plantilla, spec["ruta"], {"cursor": cursor} if cursor else {})
     try:
         respuesta, datos = _pedir(ctx, plantilla, "GET", url)
+    except _FaltaVariable as exc:
+        return ToolResult.err(f"{plantilla['nombre']}: {exc}", **vacios)
     except PortError as exc:
         return ToolResult.err(f"{plantilla['nombre']}: el servicio no responde: {exc}", **vacios)
     if not respuesta.ok or (isinstance(datos, dict) and datos.get("ok") is False):

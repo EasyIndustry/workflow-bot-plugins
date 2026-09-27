@@ -277,3 +277,14 @@ def test_las_plantillas_de_ejemplo_son_validas():
     for p in modulo._telegram("TELEGRAM_TOKEN"):
         assert _KEY_RE.match(p["nombre"]), p["nombre"]
         assert isinstance(modulo._campos(p), list), p["nombre"]
+
+
+def test_una_variable_que_no_existe_se_dice_en_vez_de_llamar_al_servicio():
+    """Sin la variable el núcleo deja {env.X} literal, y Telegram contesta 404."""
+    sin_token = [{**p, "url_base": p["url_base"]} for p in modulo._telegram("TELEGRAM_TOKEN")]
+    http = FakeHttp()
+    for tool, params in (("mensajeria.enviar", {"plantilla": "Telegram mensaje", "chat": "1", "mensaje": "x"}),
+                         ("mensajeria.recibir", {"plantilla": "Telegram recibir"})):
+        r = _correr(tool, params, http, plantillas=sin_token)
+        assert r.status == "err" and "falta la variable TELEGRAM_TOKEN" in r.message, r.message
+    assert http.calls == []
