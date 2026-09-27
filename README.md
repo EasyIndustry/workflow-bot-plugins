@@ -68,6 +68,7 @@ Para una entrada con `path` no hace falta nada de esto: la instala la webapp des
 | `bots` | coordinar otros Bots de la red desde un flujo (estado, mandar un caso, esperar el resultado) y comparar o migrar flujos y registros entre Bots; ver [`bots/README.md`](./bots/README.md) | http, clock |
 | `laya` | decisiones tipadas sobre un texto o una fila (sí/no, elegir, puntuar) con Laya, un modelo local que corre aparte como `laya-serve`; ver [`laya/README.md`](./laya/README.md) | http |
 | `mime` | leer un mail crudo (asunto, remitente, cuerpo en texto, adjuntos a una carpeta) y armar uno para enviar o responder en el hilo; ver [`mime/README.md`](./mime/README.md) | fs |
+| `mensajeria` | mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas propias: sus campos, menús de botones, archivos y lectura sin repetir; trae un ejemplo de Telegram armado. Ver [`mensajeria/README.md`](./mensajeria/README.md) | http, fs |
 | `oauth` | tokens OAuth 2.0 (Google, Microsoft u otro): autoriza una vez, renueva solo y deja el token en una variable de Config para las conexiones (`Bearer {env.X}`); crea las conexiones de Gmail con un botón. Ver [`oauth/README.md`](./oauth/README.md) | http, clock |
 
 Las llamadas HTTP guardadas no son un plugin de este repo: son Actions del plugin `connections`, que viene con `workflow-bot-app`.

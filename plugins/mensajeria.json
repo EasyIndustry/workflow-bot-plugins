@@ -1,0 +1,14 @@
+{
+  "name": "mensajeria",
+  "description": "Mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas propias: sus campos, menús de botones y archivos.",
+  "source": "workflow-bot-plugin-mensajeria",
+  "path": "mensajeria",
+  "ports": [
+    "http",
+    "fs"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.1b11",
+  "license": "MIT"
+}
