@@ -216,6 +216,9 @@ def test_recibir_mapea_mensajes_y_botones_y_guarda_el_cursor_sin_resolver_el_tok
         "chat": 556, "boton": "Sí", "boton_id": "cb7", "de": "Beto", "mensaje_id": 4711}
     assert m[2]["texto"] == "foto" and m[2]["archivo_id"] == "grande"  # -1: la foto más grande
     assert r.outputs["primero"] == m[0]
+    # Las columnas del primero, sueltas, para {chat} / {boton} sin pasar por {primero}.
+    assert (r.outputs["chat"], r.outputs["texto"], r.outputs["de"]) == (555, "hola", "ana")
+    assert r.outputs["boton"] == ""  # el primero no es un botón: vacío, no ausente
 
     [put] = [c for c in http.calls if c["method"] == "PUT"]
     item = json.loads(put["body"])["item"]
@@ -234,6 +237,7 @@ def test_sin_nada_nuevo_es_ok_con_hay_no_y_no_toca_el_cursor():
     http = _http_recibir({"ok": True, "result": []})
     r = _correr("mensajeria.recibir", {"plantilla": "Telegram recibir"}, http)
     assert r.status == "ok" and r.outputs["hay"] == "no" and r.outputs["primero"] == {}
+    assert r.outputs["chat"] == "" and r.outputs["boton"] == ""
     assert not any(c["method"] == "PUT" for c in http.calls)
 
 

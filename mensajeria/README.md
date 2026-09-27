@@ -82,7 +82,7 @@ Categoría **MENSAJERÍA**.
 | Paso | Qué hace | Deja |
 |---|---|---|
 | `mensajeria.enviar \| plantilla=Telegram mensaje, chat={chat}, mensaje=Hola, menu=Sí; No` | manda con la plantilla | `{id}`, `{status}`, `{respuesta}` |
-| `mensajeria.recibir \| plantilla=Telegram recibir, limite=10` | lee lo nuevo desde donde quedó | `{mensajes}`, `{primero}`, `{cantidad}`, `{hay}` (`si`/`no`) |
+| `mensajeria.recibir \| plantilla=Telegram recibir, limite=10` | lee lo nuevo desde donde quedó | `{mensajes}`, `{primero}`, `{cantidad}`, `{hay}` (`si`/`no`), y cada columna de `salida` del primer mensaje suelta: `{chat}`, `{texto}`, `{boton}`… |
 
 Lo leído no se vuelve a leer: el cursor se guarda antes de devolver los
 mensajes. Si el flujo falla después, esos mensajes no vuelven (vaciar el
@@ -112,9 +112,9 @@ flowchart TD
     SN(inicio)
     R["leer § mensajeria.recibir | plantilla=Telegram recibir, limite=1"]
     D{R.hay}
-    B{R.primero.boton}
-    P["preguntar § mensajeria.enviar | plantilla=Telegram mensaje, chat={R.primero.chat}, mensaje=¿Aprobás?, menu=Sí; No"]
-    C["confirmar § mensajeria.enviar | plantilla=Telegram confirmar boton, boton_id={R.primero.boton_id}, aviso=Recibido"]
+    B{R.boton}
+    P["preguntar § mensajeria.enviar | plantilla=Telegram mensaje, chat={R.chat}, mensaje=¿Aprobás?, menu=Sí; No"]
+    C["confirmar § mensajeria.enviar | plantilla=Telegram confirmar boton, boton_id={R.boton_id}, aviso=Recibido"]
     SN --> R
     R -->|ok| D
     D -->|si| B

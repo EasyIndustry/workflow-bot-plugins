@@ -121,7 +121,7 @@ CREAR_TELEGRAM = Action(
 MANIFEST = PluginManifest(
     name="mensajeria",
     label="Mensajería",
-    version="0.1.2",
+    version="0.1.3",
     doc=(
         "Mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas que "
         "arma cada uno: sus campos, cómo se envía y cómo se lee lo recibido."
@@ -482,6 +482,10 @@ RECIBIR = ToolManifest(
         Param("plantilla", required=True, options_from="plantillas", doc="Nombre de la plantilla."),
         Param("limite", ParamType.INT, default=10, doc="Cuántos mensajes como máximo. Los demás quedan para la próxima."),
     ),
+    # Las columnas de 'salida' las define cada plantilla: no se pueden declarar
+    # de antemano, y sin esto el editor marcaría {chat} como variable inexistente.
+    extra_outputs=True,
+    extra_outputs_doc="Cada columna de 'salida' de la plantilla, del primer mensaje: {chat}, {texto}, {boton}, {de}… Vacías si no llegó nada.",
     outputs=(
         Output("mensajes", ParamType.JSON, doc="Lista, cada uno con las columnas de 'salida' y 'crudo'."),
         Output("primero", ParamType.JSON, doc="El primer mensaje, o vacío."),
@@ -570,8 +574,14 @@ def _recibir(ctx: ToolContext) -> ToolResult:
             return ToolResult.err(f"{plantilla['nombre']}: no se pudo guardar hasta dónde se leyó ({error}); no se devuelve nada para no repetir", **vacios)
 
     ctx.log(f"{plantilla['nombre']}: {len(mensajes)} mensaje(s)" + (f", quedan {len(lista) - len(tomados)}" if len(lista) > len(tomados) else ""))
-    return ToolResult.ok(mensajes=mensajes, primero=mensajes[0] if mensajes else {}, cantidad=len(mensajes),
-                         hay="si" if mensajes else "no")
+    fijos = {"mensajes": mensajes, "primero": mensajes[0] if mensajes else {}, "cantidad": len(mensajes),
+             "hay": "si" if mensajes else "no"}
+    # Las columnas del primer mensaje, sueltas: {chat} en vez de {R.primero.chat},
+    # que es lo que un flujo usa casi siempre. Vacías si no llegó nada, para que
+    # un rombo sobre {boton} no se quede sin valor. Nunca pisan a los fijos.
+    columnas = {col: ("" if not mensajes or mensajes[0].get(col) is None else mensajes[0][col])
+                for col in (salida or {}) if col not in fijos}
+    return ToolResult.ok(**columnas, **fijos)
 
 
 # ── Ejemplo de Telegram ───────────────────────────────────────────────────
