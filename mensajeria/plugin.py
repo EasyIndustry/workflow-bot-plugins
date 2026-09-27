@@ -96,7 +96,8 @@ PLANTILLAS = Resource(
             "enviar", ParamType.JSON, label="Enviar", default={},
             doc='{"metodo": "POST", "ruta": "/sendMessage", "formato": "json" | "form" | "multipart", '
             '"cuerpo": {"chat_id": "{chat}", "text": "{mensaje}"}, "respuesta_id": "result.message_id"}. '
-            'Un "{campo}" solo en un valor conserva el tipo; si el campo viene vacío, esa clave se saca.',
+            'Un "{campo}" solo en un valor conserva el tipo; si el campo viene vacío, esa clave se saca. '
+            'Opcional "timeout": segundos para esta llamada.',
         ),
         Field(
             "recibir", ParamType.JSON, label="Recibir", default={},
@@ -121,7 +122,7 @@ CREAR_TELEGRAM = Action(
 MANIFEST = PluginManifest(
     name="mensajeria",
     label="Mensajería",
-    version="0.1.5",
+    version="0.1.6",
     doc=(
         "Mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas que "
         "arma cada uno: sus campos, cómo se envía y cómo se lee lo recibido."
@@ -360,7 +361,8 @@ class _FaltaVariable(Exception):
     pass
 
 
-def _pedir(ctx: ToolContext, plantilla: dict, metodo: str, url: str, formato: str = "", cuerpo=None, espera: int = 0):
+def _pedir(ctx: ToolContext, plantilla: dict, metodo: str, url: str, formato: str = "", cuerpo=None, espera: int = 0,
+           timeout: float | None = None):
     headers = {str(k): str(v) for k, v in (_objeto(plantilla.get("headers")) or {}).items()}
     # El núcleo reemplaza {env.X} al entregar la plantilla; si quedó uno es que
     # la variable no existe. Mandarlo así termina en un 401/404 del servicio que
@@ -379,7 +381,8 @@ def _pedir(ctx: ToolContext, plantilla: dict, metodo: str, url: str, formato: st
             body, headers["Content-Type"] = json.dumps(cuerpo, ensure_ascii=False), "application/json"
     # Con espera, el servicio tiene el pedido abierto hasta que llega algo
     # ("long polling"): el timeout propio tiene que durar más, o se corta antes.
-    timeout = max(float(ctx.config(TIMEOUT) or 30), espera + 15.0)
+    if timeout is None:
+        timeout = max(float(ctx.config(TIMEOUT) or 30), espera + 15.0)
     respuesta = ctx.port(port_names.HTTP).request(url, method=metodo, headers=headers, body=body, timeout=timeout)
     return respuesta, respuesta.json(default=None)
 
@@ -452,8 +455,12 @@ def _enviar(ctx: ToolContext) -> ToolResult:
     if any(isinstance(v, _Archivo) for v in (cuerpo.values() if isinstance(cuerpo, dict) else [])) and formato != "multipart":
         return ToolResult.err("la plantilla manda un archivo: 'formato' tiene que ser 'multipart'", **vacios)
     url = _url(plantilla, envio.get("ruta") or "", valores)
+    # Un 'timeout' propio de la plantilla: hay llamadas que, si no contestan
+    # enseguida, ya no sirven (Telegram tarda un minuto en rechazar la
+    # confirmación de un botón vencido, y mientras tanto no se atiende el resto).
+    timeout = float(envio["timeout"]) if envio.get("timeout") else None
     try:
-        respuesta, datos = _pedir(ctx, plantilla, metodo, url, formato, cuerpo)
+        respuesta, datos = _pedir(ctx, plantilla, metodo, url, formato, cuerpo, timeout=timeout)
     except _FaltaVariable as exc:
         return ToolResult.err(f"{plantilla['nombre']}: {exc}", **vacios)
     except PortError as exc:
@@ -652,7 +659,9 @@ def _telegram(variable: str) -> list[dict]:
                 {"nombre": "boton_id", "tipo": "texto", "obligatorio": True, "doc": "El {primero.boton_id} de lo recibido."},
                 {"nombre": "aviso", "tipo": "texto", "doc": "Opcional: un cartelito que ve quien apretó."},
             ],
-            "enviar": {"metodo": "POST", "ruta": "/answerCallbackQuery", "formato": "json",
+            # Telegram tarda ~1 minuto en rechazar un botón vencido: si no
+            # contesta en 5 segundos, ya venció, y se sigue con lo demás.
+            "enviar": {"metodo": "POST", "ruta": "/answerCallbackQuery", "formato": "json", "timeout": 5,
                        "cuerpo": {"callback_query_id": "{boton_id}", "text": "{aviso}"}},
             "recibir": {},
         },

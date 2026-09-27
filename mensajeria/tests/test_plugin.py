@@ -312,3 +312,16 @@ def test_con_espera_el_servicio_puede_tener_el_pedido_abierto_y_el_timeout_alcan
     http = _http_recibir(UPDATES)
     _correr("mensajeria.recibir", {"plantilla": "Telegram recibir", "limite": 1}, http)
     assert next(c for c in http.calls if "getUpdates" in c["url"])["url"].endswith("&timeout=0")
+
+
+def test_la_confirmacion_de_un_boton_tiene_timeout_corto():
+    """Telegram tarda un minuto en rechazar un botón vencido: la plantilla corta a los 5 s."""
+    http = FakeHttp({f"{TG}/answerCallbackQuery": _json({"ok": True, "result": True})})
+    r = _correr("mensajeria.enviar", {"plantilla": "Telegram confirmar boton", "boton_id": "cb7"}, http)
+    assert r.status == "ok", r.message
+    assert http.calls[-1]["timeout"] == 5.0
+    assert _enviado(http) == {"callback_query_id": "cb7"}  # sin aviso: no se manda text vacío
+
+    http = FakeHttp({f"{TG}/sendMessage": OK_MENSAJE})
+    _correr("mensajeria.enviar", {"plantilla": "Telegram mensaje", "chat": "1", "mensaje": "x"}, http)
+    assert http.calls[-1]["timeout"] == 30.0  # sin timeout propio: el de Config
