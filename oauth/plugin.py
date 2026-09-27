@@ -152,7 +152,7 @@ CREAR_GMAIL = Action(
 MANIFEST = PluginManifest(
     name="oauth",
     label="OAuth",
-    version="0.1.1",
+    version="0.1.2",
     doc=(
         "Tokens OAuth 2.0 para APIs como Google o Microsoft: autoriza una vez, renueva solo y deja el "
         "token en una variable de Config que las conexiones usan con Bearer {env.VARIABLE}."
@@ -453,15 +453,15 @@ def _conexiones_gmail(variable: str) -> list[dict]:
                 "payload": payload or {}, "results_path": results_path}
 
     return [
-        conexion("Gmail · buscar", f"{GMAIL}/messages?q={{q}}&maxResults=20", results_path="messages"),
-        conexion("Gmail · leer", f"{GMAIL}/messages/{{id}}?format=raw"),
-        conexion("Gmail · archivar", f"{GMAIL}/messages/{{id}}/modify", "POST", {"removeLabelIds": ["INBOX"]}),
-        conexion("Gmail · marcar leído", f"{GMAIL}/messages/{{id}}/modify", "POST", {"removeLabelIds": ["UNREAD"]}),
-        conexion("Gmail · etiquetar", f"{GMAIL}/messages/{{id}}/modify", "POST", {"addLabelIds": ["{etiqueta_id}"]}),
-        conexion("Gmail · etiquetas", f"{GMAIL}/labels", results_path="labels"),
-        conexion("Gmail · enviar", f"{GMAIL}/messages/send", "POST", {"raw": "{raw}"}),
-        conexion("Gmail · responder", f"{GMAIL}/messages/send", "POST", {"raw": "{raw}", "threadId": "{thread_id}"}),
-        conexion("Gmail · adjunto", f"{GMAIL}/messages/{{id}}/attachments/{{adjunto_id}}"),
+        conexion("Gmail - buscar", f"{GMAIL}/messages?q={{q}}&maxResults=20", results_path="messages"),
+        conexion("Gmail - leer", f"{GMAIL}/messages/{{id}}?format=raw"),
+        conexion("Gmail - archivar", f"{GMAIL}/messages/{{id}}/modify", "POST", {"removeLabelIds": ["INBOX"]}),
+        conexion("Gmail - marcar leído", f"{GMAIL}/messages/{{id}}/modify", "POST", {"removeLabelIds": ["UNREAD"]}),
+        conexion("Gmail - etiquetar", f"{GMAIL}/messages/{{id}}/modify", "POST", {"addLabelIds": ["{etiqueta_id}"]}),
+        conexion("Gmail - etiquetas", f"{GMAIL}/labels", results_path="labels"),
+        conexion("Gmail - enviar", f"{GMAIL}/messages/send", "POST", {"raw": "{raw}"}),
+        conexion("Gmail - responder", f"{GMAIL}/messages/send", "POST", {"raw": "{raw}", "threadId": "{thread_id}"}),
+        conexion("Gmail - adjunto", f"{GMAIL}/messages/{{id}}/attachments/{{adjunto_id}}"),
     ]
 
 

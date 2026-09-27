@@ -227,7 +227,7 @@ def test_proveedor_otro_necesita_sus_urls():
 
 def test_crear_gmail_escribe_las_conexiones_con_la_variable_y_saltea_las_que_existen():
     base = f"{BOT}/resources/connections/actions/"
-    respuestas = {base + "Gmail%20%C2%B7%20leer": _json({"item": {"name": "Gmail · leer"}})}
+    respuestas = {base + "Gmail%20-%20leer": _json({"item": {"name": "Gmail - leer"}})}
 
     class Http(FakeHttp):
         def request(self, url, *, method="GET", headers=None, body=None, timeout=30.0):
@@ -239,13 +239,13 @@ def test_crear_gmail_escribe_las_conexiones_con_la_variable_y_saltea_las_que_exi
     http = Http()
     r = _accion("crear_gmail", {"nombre": "google"}, http)
     assert r.status == "ok", r.message
-    assert r.outputs["salteadas"] == ["Gmail · leer"] and "Gmail · buscar" in r.outputs["creadas"]
+    assert r.outputs["salteadas"] == ["Gmail - leer"] and "Gmail - buscar" in r.outputs["creadas"]
     puts = {json.loads(c["body"])["item"]["name"]: json.loads(c["body"])["item"] for c in http.calls if c["method"] == "PUT"}
-    assert "Gmail · leer" not in puts and len(puts) == 8
-    buscar = puts["Gmail · buscar"]
+    assert "Gmail - leer" not in puts and len(puts) == 8
+    buscar = puts["Gmail - buscar"]
     assert buscar["headers"]["Authorization"] == "Bearer {env.GOOGLE_TOKEN}"
     assert buscar["url"].endswith("/messages?q={q}&maxResults=20") and buscar["results_path"] == "messages"
-    assert puts["Gmail · responder"]["payload"] == {"raw": "{raw}", "threadId": "{thread_id}"}
+    assert puts["Gmail - responder"]["payload"] == {"raw": "{raw}", "threadId": "{thread_id}"}
 
     r = _accion("crear_gmail", {"nombre": "google", "pisar": True}, Http())
     assert len(r.outputs["creadas"]) == 9
@@ -266,3 +266,15 @@ def test_el_codigo_llega_desde_el_campo_de_la_cuenta_guardada():
     r = _accion("autorizar", {"nombre": "google"}, http, cuentas=(cuenta,))
     assert r.status == "ok", r.message
     assert parse_qs(_llamadas(http, TOKEN_URL)[0]["body"])["code"] == ["4/0DesdeElCampo"]
+
+
+def test_los_nombres_de_las_conexiones_son_validos_para_el_nucleo():
+    """El núcleo rechaza una clave con otra cosa que letras, números, guiones y
+    espacios: un '·' en el nombre hizo fallar 'Crear conexiones' en un Bot real."""
+    try:
+        from backend.core.resources import _KEY_RE
+    except ImportError:  # núcleo sin esa validación a mano: se prueba la misma regla
+        import re
+        _KEY_RE = re.compile(r"^[\w\- ]+$")
+    malos = [c["name"] for c in modulo._conexiones_gmail("GOOGLE_TOKEN") if not _KEY_RE.match(c["name"])]
+    assert malos == []

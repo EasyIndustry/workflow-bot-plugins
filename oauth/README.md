@@ -68,15 +68,15 @@ aparece en la barra y es lo que se copia.
 
 | Conexión | Qué hace | Lo que pide el nodo |
 |---|---|---|
-| Gmail · buscar | busca con la sintaxis de Gmail; `{result}` es la lista de `{id, threadId}` | `q` (ej. `is:unread from:x`) |
-| Gmail · leer | el mail en formato `raw`, para `mime.leer` | `id` |
-| Gmail · archivar | lo saca de la bandeja de entrada | `id` |
-| Gmail · marcar leído | le saca UNREAD | `id` |
-| Gmail · etiquetar | le pone una etiqueta | `id`, `etiqueta_id` |
-| Gmail · etiquetas | las etiquetas de la cuenta, con su id | — |
-| Gmail · enviar | manda un mail armado con `mime.armar` | `raw` |
-| Gmail · responder | lo mismo, en el hilo | `raw`, `thread_id` |
-| Gmail · adjunto | un adjunto grande, para `mime.guardar_base64` | `id`, `adjunto_id` |
+| Gmail - buscar | busca con la sintaxis de Gmail; `{result}` es la lista de `{id, threadId}` | `q` (ej. `is:unread from:x`) |
+| Gmail - leer | el mail en formato `raw`, para `mime.leer` | `id` |
+| Gmail - archivar | lo saca de la bandeja de entrada | `id` |
+| Gmail - marcar leído | le saca UNREAD | `id` |
+| Gmail - etiquetar | le pone una etiqueta | `id`, `etiqueta_id` |
+| Gmail - etiquetas | las etiquetas de la cuenta, con su id | — |
+| Gmail - enviar | manda un mail armado con `mime.armar` | `raw` |
+| Gmail - responder | lo mismo, en el hilo | `raw`, `thread_id` |
+| Gmail - adjunto | un adjunto grande, para `mime.guardar_base64` | `id`, `adjunto_id` |
 
 Las que ya existen con el mismo nombre no se tocan (salvo con `pisar`).
 
@@ -89,12 +89,12 @@ hay sirve, no pide otro), y los nodos que siguen usan las conexiones:
 flowchart TD
     SN(inicio)
     T["token § oauth.token | cuenta=google"]
-    B["sin leer § connections.llamar | connection=Gmail · buscar, q=is:unread"]
-    L["traer § connections.llamar | connection=Gmail · leer, id={result.0.id}"]
+    B["sin leer § connections.llamar | connection=Gmail - buscar, q=is:unread"]
+    L["traer § connections.llamar | connection=Gmail - leer, id={result.0.id}"]
     M["leer § mime.leer | mensaje={response}"]
     U["¿urgente? § laya.si_no | texto={texto}, pregunta=¿El cliente pide algo urgente?, minimo=0.8"]
     D{respuesta}
-    E["etiquetar § connections.llamar | connection=Gmail · etiquetar, id={result.0.id}, etiqueta_id=Label_1"]
+    E["etiquetar § connections.llamar | connection=Gmail - etiquetar, id={result.0.id}, etiqueta_id=Label_1"]
     SN --> T
     T -->|ok| B
     B -->|ok| L
