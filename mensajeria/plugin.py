@@ -121,7 +121,7 @@ CREAR_TELEGRAM = Action(
 MANIFEST = PluginManifest(
     name="mensajeria",
     label="Mensajería",
-    version="0.1.3",
+    version="0.1.4",
     doc=(
         "Mandar y recibir mensajes por cualquier servicio (Telegram, WhatsApp, Slack…) con plantillas que "
         "arma cada uno: sus campos, cómo se envía y cómo se lee lo recibido."
@@ -524,6 +524,10 @@ def _guardar_plantilla(ctx: ToolContext, plantilla: dict, **cambios) -> str | No
         return f"este Bot respondió {respuesta.status} al leer la plantilla"
     item = guardada.get("item", guardada)
     item = {k: v for k, v in item.items() if not str(k).startswith("_")}
+    # El GET de un item suelto no trae la clave (va en la URL), y el PUT la
+    # exige: sin esto la app contestaba 400 "Nombre: es obligatorio" y el
+    # cursor no se guardaba nunca.
+    item["nombre"] = plantilla["nombre"]
     item.update(cambios)
     try:
         respuesta, _ = _al_bot(ctx, "PUT", f"/resources/mensajeria/plantillas/{quote(plantilla['nombre'], safe='')}", {"item": item})

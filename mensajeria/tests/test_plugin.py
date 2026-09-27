@@ -198,7 +198,10 @@ UPDATES = {"ok": True, "result": [
 
 
 def _http_recibir(updates, cursor_en_url=""):
-    guardada = {"item": {**modulo._telegram("TELEGRAM_TOKEN")[2]}}  # como está en la base: con {env.X}
+    # Como la devuelve la app: con {env.X} sin resolver, y SIN la clave 'nombre',
+    # que en un GET de un item suelto va en la URL y no en el cuerpo.
+    guardada = {k: v for k, v in modulo._telegram("TELEGRAM_TOKEN")[2].items() if k != "nombre"}
+    guardada["_updated_at"] = 1790000000.0
     return FakeHttp({
         f"{TG}/getUpdates?offset={cursor_en_url}&timeout=0": _json(updates),
         f"{BOT}/resources/mensajeria/plantillas/Telegram%20recibir": _json(guardada),
@@ -223,6 +226,8 @@ def test_recibir_mapea_mensajes_y_botones_y_guarda_el_cursor_sin_resolver_el_tok
     [put] = [c for c in http.calls if c["method"] == "PUT"]
     item = json.loads(put["body"])["item"]
     assert item["cursor"] == "903"
+    assert item["nombre"] == "Telegram recibir"  # el PUT la exige aunque el GET no la traiga
+    assert "_updated_at" not in item
     assert "{env.TELEGRAM_TOKEN}" in item["url_base"] and "123:ABC" not in put["body"]
 
 
