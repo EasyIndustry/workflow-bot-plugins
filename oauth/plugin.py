@@ -140,8 +140,9 @@ PROBAR = Action(
 )
 CREAR_GMAIL = Action(
     "crear_gmail", "Crear conexiones de Gmail",
-    doc="Crea en Conexiones las llamadas de Gmail (buscar, leer, archivar, marcar leído, etiquetar, "
-    "enviar, responder, adjuntos) usando la variable de esta cuenta. Las que ya existen no se tocan.",
+    doc="Crea en Conexiones las llamadas de Gmail (buscar, leer, hilo, archivar, marcar leído, etiquetar, "
+    "enviar, responder, adjuntos) y el source 'Gmail sin leer' para la grilla, usando la variable de "
+    "esta cuenta. Las que ya existen no se tocan.",
     resource="cuentas",
     params=(
         Param("nombre", required=True, options_from="cuentas"),
@@ -152,7 +153,7 @@ CREAR_GMAIL = Action(
 MANIFEST = PluginManifest(
     name="oauth",
     label="OAuth",
-    version="0.1.2",
+    version="0.1.3",
     doc=(
         "Tokens OAuth 2.0 para APIs como Google o Microsoft: autoriza una vez, renueva solo y deja el "
         "token en una variable de Config que las conexiones usan con Bearer {env.VARIABLE}."
@@ -455,6 +456,7 @@ def _conexiones_gmail(variable: str) -> list[dict]:
     return [
         conexion("Gmail - buscar", f"{GMAIL}/messages?q={{q}}&maxResults=20", results_path="messages"),
         conexion("Gmail - leer", f"{GMAIL}/messages/{{id}}?format=raw"),
+        conexion("Gmail - hilo", f"{GMAIL}/threads/{{id}}?format=minimal"),
         conexion("Gmail - archivar", f"{GMAIL}/messages/{{id}}/modify", "POST", {"removeLabelIds": ["INBOX"]}),
         conexion("Gmail - marcar leído", f"{GMAIL}/messages/{{id}}/modify", "POST", {"removeLabelIds": ["UNREAD"]}),
         conexion("Gmail - etiquetar", f"{GMAIL}/messages/{{id}}/modify", "POST", {"addLabelIds": ["{etiqueta_id}"]}),
@@ -463,6 +465,21 @@ def _conexiones_gmail(variable: str) -> list[dict]:
         conexion("Gmail - responder", f"{GMAIL}/messages/send", "POST", {"raw": "{raw}", "threadId": "{thread_id}"}),
         conexion("Gmail - adjunto", f"{GMAIL}/messages/{{id}}/attachments/{{adjunto_id}}"),
     ]
+
+
+def _fuentes_gmail(variable: str) -> list[dict]:
+    """
+    Los sources de `connections` para la grilla. Una fila por hilo y no por
+    mensaje: la lista de mensajes de Gmail sólo trae id y threadId, la de
+    hilos trae además `snippet` (el comienzo del texto), que es lo que deja
+    saber qué es cada fila. La búsqueda va fija y ya codificada en la URL.
+    """
+    return [{
+        "name": "Gmail sin leer", "kind": "http", "method": "GET",
+        "url": f"{GMAIL}/threads?q=is%3Aunread%20in%3Ainbox&maxResults=100",
+        "headers": {"Authorization": f"Bearer {{env.{variable}}}", "Accept": "application/json"},
+        "payload": {}, "results_path": "threads", "key_field": "id", "page_size": 100,
+    }]
 
 
 def _crear_gmail(ctx: ToolContext) -> ToolResult:
@@ -476,8 +493,9 @@ def _crear_gmail(ctx: ToolContext) -> ToolResult:
         return variable
     pisar = bool(ctx.params.get("pisar"))
     creadas, salteadas = [], []
-    for conexion in _conexiones_gmail(variable):
-        camino = f"/resources/connections/actions/{quote(conexion['name'], safe='')}"
+    items = [("actions", c) for c in _conexiones_gmail(variable)] + [("sources", f) for f in _fuentes_gmail(variable)]
+    for coleccion, conexion in items:
+        camino = f"/resources/connections/{coleccion}/{quote(conexion['name'], safe='')}"
         try:
             if not pisar:
                 existe, _ = _al_bot(ctx, "GET", camino)

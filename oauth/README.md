@@ -70,6 +70,7 @@ aparece en la barra y es lo que se copia.
 |---|---|---|
 | Gmail - buscar | busca con la sintaxis de Gmail; `{result}` es la lista de `{id, threadId}` | `q` (ej. `is:unread from:x`) |
 | Gmail - leer | el mail en formato `raw`, para `mime.leer` | `id` |
+| Gmail - hilo | los mensajes de un hilo (`{response.messages}`, cada uno con su `id`) | `id` del hilo |
 | Gmail - archivar | lo saca de la bandeja de entrada | `id` |
 | Gmail - marcar leído | le saca UNREAD | `id` |
 | Gmail - etiquetar | le pone una etiqueta | `id`, `etiqueta_id` |
@@ -79,6 +80,15 @@ aparece en la barra y es lo que se copia.
 | Gmail - adjunto | un adjunto grande, para `mime.guardar_base64` | `id`, `adjunto_id` |
 
 Las que ya existen con el mismo nombre no se tocan (salvo con `pisar`).
+
+Crea también el source **Gmail sin leer** para la grilla: una fila por hilo
+sin leer de la bandeja de entrada (hasta 100), con `id`, `snippet` (el
+comienzo del texto) e `historyId`. Es por hilo y no por mensaje porque la
+lista de mensajes de Gmail sólo trae ids. El flujo de cada fila recibe `{id}`
+(el del hilo): `Gmail - hilo` da sus mensajes, y `Gmail - leer` con
+`id={H.response.messages.0.id}` trae el primero. El token lo tiene que tener
+vigente un flujo con `oauth.token` programado (si pasó más de una hora sin
+renovarlo, la grilla da 401).
 
 ## En un flujo
 

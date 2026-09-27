@@ -241,14 +241,18 @@ def test_crear_gmail_escribe_las_conexiones_con_la_variable_y_saltea_las_que_exi
     assert r.status == "ok", r.message
     assert r.outputs["salteadas"] == ["Gmail - leer"] and "Gmail - buscar" in r.outputs["creadas"]
     puts = {json.loads(c["body"])["item"]["name"]: json.loads(c["body"])["item"] for c in http.calls if c["method"] == "PUT"}
-    assert "Gmail - leer" not in puts and len(puts) == 8
+    assert "Gmail - leer" not in puts and len(puts) == 10  # 9 conexiones + el source
+    fuente = puts["Gmail sin leer"]
+    assert fuente["key_field"] == "id" and fuente["results_path"] == "threads"
+    assert fuente["headers"]["Authorization"] == "Bearer {env.GOOGLE_TOKEN}" and " " not in fuente["url"]
+    assert any("/resources/connections/sources/" in c["url"] for c in http.calls if c["method"] == "PUT")
     buscar = puts["Gmail - buscar"]
     assert buscar["headers"]["Authorization"] == "Bearer {env.GOOGLE_TOKEN}"
     assert buscar["url"].endswith("/messages?q={q}&maxResults=20") and buscar["results_path"] == "messages"
     assert puts["Gmail - responder"]["payload"] == {"raw": "{raw}", "threadId": "{thread_id}"}
 
     r = _accion("crear_gmail", {"nombre": "google", "pisar": True}, Http())
-    assert len(r.outputs["creadas"]) == 9
+    assert len(r.outputs["creadas"]) == 11
 
 
 def test_crear_gmail_solo_para_una_cuenta_de_google():
@@ -276,5 +280,6 @@ def test_los_nombres_de_las_conexiones_son_validos_para_el_nucleo():
     except ImportError:  # núcleo sin esa validación a mano: se prueba la misma regla
         import re
         _KEY_RE = re.compile(r"^[\w\- ]+$")
-    malos = [c["name"] for c in modulo._conexiones_gmail("GOOGLE_TOKEN") if not _KEY_RE.match(c["name"])]
+    todos = modulo._conexiones_gmail("GOOGLE_TOKEN") + modulo._fuentes_gmail("GOOGLE_TOKEN")
+    malos = [c["name"] for c in todos if not _KEY_RE.match(c["name"])]
     assert malos == []
