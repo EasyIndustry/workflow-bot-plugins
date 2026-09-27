@@ -250,3 +250,18 @@ def test_leer_se_declara_para_correr_en_seco_si_el_nucleo_lo_sabe():
         return  # núcleo anterior a core#34: se instala igual, sin el campo
     assert LEER.dry_run == "run"
     assert ARMAR.dry_run == "skip" and GUARDAR_BASE64.dry_run == "skip"
+
+
+def test_la_response_de_una_conexion_llega_como_repr_de_python_y_se_lee_igual():
+    """`mensaje={L.response}` en un param de texto: el núcleo pasa str(dict), con
+    comillas simples. Es lo que manda un flujo real que encadena 'Gmail - leer'."""
+    respuesta = {"id": "18a", "threadId": "18a", "labelIds": ["INBOX", "UNREAD"], "raw": _raw(_mail()), "sizeEstimate": 1234}
+    r, _, _ = _correr("mime.leer", {"mensaje": str(respuesta)})
+    assert r.status == "ok", r.message
+    assert r.outputs["de_email"] == "jose@ejemplo.com"
+
+    data = base64.urlsafe_b64encode(PDF).decode().rstrip("=")
+    r, fs, _ = _correr("mime.guardar_base64", {"datos": str({"size": len(PDF), "data": data}), "ruta": "C:/a/b.pdf"})
+    assert r.status == "ok" and fs.bytes["C:/a/b.pdf"] == PDF
+
+    # `responder` es ParamType.JSON: ahí el núcleo pasa el objeto tal cual, nunca str(dict).

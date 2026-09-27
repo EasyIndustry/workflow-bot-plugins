@@ -23,6 +23,7 @@ Lo que NO hace, a propósito:
 
 from __future__ import annotations
 
+import ast
 import base64
 import dataclasses
 import binascii
@@ -53,7 +54,7 @@ from backend.core.ports import PortError
 MANIFEST = PluginManifest(
     name="mime",
     label="Correo (MIME)",
-    version="0.1.1",
+    version="0.1.2",
     doc="Leer un mail crudo (asunto, remitente, cuerpo en texto, adjuntos a una carpeta) y armar uno para "
     "enviar o responder en el mismo hilo. Pedirlo y mandarlo lo hace una conexión.",
     ports=(port_names.FS,),
@@ -93,6 +94,26 @@ def _base64(texto: str) -> bytes | None:
         return None
 
 
+def _como_objeto(valor):
+    """
+    El dict, si lo que llegó es uno escrito como texto; si no, tal cual.
+
+    Un param de texto que recibe `{nodo.response}` (un objeto) llega como
+    `str(dict)`: el repr de Python, con comillas simples, que no es JSON. Pasa
+    siempre que un flujo encadena la respuesta de una conexión, así que se lee
+    igual que un JSON.
+    """
+    if isinstance(valor, str) and valor.strip()[:1] == "{":
+        for leer in (json.loads, ast.literal_eval):
+            try:
+                leido = leer(valor.strip())
+            except (ValueError, SyntaxError):
+                continue
+            if isinstance(leido, dict):
+                return leido
+    return valor
+
+
 def _bytes_del_mensaje(crudo) -> bytes | str:
     """
     Los bytes del mail, o un mensaje de error.
@@ -101,11 +122,7 @@ def _bytes_del_mensaje(crudo) -> bytes | str:
     RFC 822 tal cual, o el JSON entero de la respuesta de Gmail —con `raw`
     adentro—, que es lo que deja una conexión en `{response}`.
     """
-    if isinstance(crudo, str) and crudo.strip()[:1] == "{":
-        try:
-            crudo = json.loads(crudo)
-        except ValueError:
-            pass
+    crudo = _como_objeto(crudo)
     if isinstance(crudo, dict):
         if "raw" not in crudo:
             if "payload" in crudo:
@@ -339,15 +356,8 @@ def _lista_de(valor) -> list[str]:
 
 
 def _objeto(valor) -> dict:
-    if isinstance(valor, dict):
-        return valor
-    if isinstance(valor, str) and valor.strip()[:1] == "{":
-        try:
-            leido = json.loads(valor)
-        except ValueError:
-            return {}
-        return leido if isinstance(leido, dict) else {}
-    return {}
+    leido = _como_objeto(valor)
+    return leido if isinstance(leido, dict) else {}
 
 
 ARMAR = ToolManifest(
