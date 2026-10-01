@@ -572,6 +572,15 @@ def test_un_valor_en_la_query_se_codifica_y_en_el_camino_no():
     assert r["headers"] == {"H": "is:unread from:x"}
 
 
+def test_el_user_agent_por_defecto_codifica_en_latin1():
+    """
+    http.client codifica las cabeceras en latin-1: un carácter fuera de ese
+    rango (ej. una raya larga "—") revienta con UnicodeEncodeError antes de
+    salir a la red, para cualquier Action/Source que no declare el suyo.
+    """
+    _plugin.USER_AGENT.encode("latin-1")
+
+
 def test_manda_un_user_agent_propio_salvo_que_la_conexion_declare_uno():
     """Sin esto sale `Python-urllib`, y Cloudflare lo corta con 403 antes de mirar el token."""
     http = FakeHttp().stub("https://api.test/a", text="[]").stub("https://api.test/b", text="[]")

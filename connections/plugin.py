@@ -207,7 +207,11 @@ def _cuerpo(payload) -> str | None:
 # de mirar el token, así que una fuente con el `{env.X}` bien resuelto seguía
 # fallando y parecía un problema de credenciales. Uno propio, sólo si la
 # conexión no declara el suyo en los headers.
-USER_AGENT = "workflow-bot-core (Bot) — plugin connections"
+# Sólo ASCII: http.client codifica las cabeceras en latin-1, y un carácter
+# fuera de ese rango (ej. una raya larga "—") revienta con UnicodeEncodeError
+# antes de salir a la red, para cualquier Action/Source que no declare su
+# propio User-Agent.
+USER_AGENT = "workflow-bot-core (Bot) - plugin connections"
 
 
 def _headers_con_json(headers: dict, cuerpo: str | None) -> dict:
@@ -780,7 +784,7 @@ def _describir_extras(node_params: dict, leer_item) -> tuple[Param, ...]:
 MANIFEST = PluginManifest(
     name="connections",
     label="Connections",
-    version="0.1.0",
+    version="0.1.1",
     doc=(
         "Sources (grilla + ejecución por fila) y Actions (llamada HTTP guardada "
         "para usar dentro de un flujo)."
