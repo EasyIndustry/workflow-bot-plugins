@@ -1,0 +1,13 @@
+{
+  "name": "connections",
+  "description": "Llamadas HTTP guardadas: sources para la grilla del panel principal y actions (connections.llamar) para traer un dato dentro de un flujo.",
+  "source": "workflow-bot-plugin-connections",
+  "path": "connections",
+  "ports": [
+    "http"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.0",
+  "license": "MIT"
+}
