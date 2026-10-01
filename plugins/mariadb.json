@@ -1,0 +1,13 @@
+{
+  "name": "mariadb",
+  "description": "Consultas de sólo lectura, guardadas y reutilizables en un flujo, contra un servidor MySQL o MariaDB externo (mariadb.consultar).",
+  "source": "workflow-bot-plugin-mariadb",
+  "path": "mariadb",
+  "ports": [
+    "socket"
+  ],
+  "maintainer": "EasyIndustry",
+  "repo_url": "https://github.com/EasyIndustry/workflow-bot-plugins",
+  "compatible_core": ">=0.3.1b18",
+  "license": "MIT"
+}

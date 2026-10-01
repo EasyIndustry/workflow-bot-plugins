@@ -72,6 +72,7 @@ Para una entrada con `path` no hace falta nada de esto: la instala la webapp des
 | `oauth` | tokens OAuth 2.0 (Google, Microsoft u otro): autoriza una vez, renueva solo y deja el token en una variable de Config para las conexiones (`Bearer {env.X}`); crea las conexiones de Gmail con un botón. Ver [`oauth/README.md`](./oauth/README.md) | http, clock |
 | `connections` | llamadas HTTP guardadas: sources para la grilla del panel principal y actions (`connections.llamar`) para traer un dato dentro de un flujo; versión genérica de la que trae `workflow-bot-app` por default. Ver [`connections/README.md`](./connections/README.md) | http |
 | `sqlite` | consultas de sólo lectura, guardadas y reutilizables en un flujo (`sqlite.consultar`), contra un archivo SQLite externo — primo de `connections` para SQL en vez de HTTP. Ver [`sqlite/README.md`](./sqlite/README.md) | sqlite_file |
+| `mariadb` | lo mismo que `sqlite`, contra un servidor MySQL/MariaDB externo (`mariadb.consultar`); el protocolo de cable está implementado a mano sobre el port `socket`, sin driver. Ver [`mariadb/README.md`](./mariadb/README.md) | socket |
 
 ## Proponer un plugin nuevo
 
